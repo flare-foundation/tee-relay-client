@@ -1,4 +1,4 @@
-package manager
+package router
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 const timeout = 5 * time.Second    // maximal duration for the server to resolve the query
 const maxRespSize = 10 * (1 << 20) // 10 MB for maximal response size of the server
 
-func SendPost[T ~uintptr](ctx context.Context, url string, apiKey string, body []byte, response T) error {
+func SendPost[T any](ctx context.Context, url string, apiKey apiKey, body []byte, response T) error {
 	client := &http.Client{Timeout: timeout}
 
 	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
@@ -22,7 +22,7 @@ func SendPost[T ~uintptr](ctx context.Context, url string, apiKey string, body [
 	}
 
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("X-API-KEY", apiKey)
+	request.Header.Set(apiKey.name, apiKey.key)
 
 	resp, err := client.Do(request)
 	if err != nil {
