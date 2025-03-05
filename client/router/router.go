@@ -7,16 +7,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
 type Router interface {
 	Sign([]common.Hash) ([][]byte, error)
 	Augment(common.Hash, common.Hash, hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error)
-}
-
-type apiKey struct {
-	name string
-	key  string
 }
 
 // move to common
@@ -29,7 +25,7 @@ type Response struct {
 }
 
 type Signer struct {
-	key apiKey
+	key utils.APIKey
 	url string
 }
 
@@ -43,7 +39,7 @@ func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 
 	response := Response{}
 
-	err = SendPost(ctx, s.url, s.key, encodedBody, &response)
+	err = utils.POST(ctx, s.url, s.key, encodedBody, &response)
 	if err != nil {
 		return nil, err
 	}

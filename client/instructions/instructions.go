@@ -37,10 +37,12 @@ func ParseTeeInstructionsSent(instruction database.Log) (*teeinstructions.TeeIns
 type Instruction interface {
 	// Process prepares the instruction to be sent to Tees
 	Process(router.Router) error
+	// Dispatch instruction to sender
+	Dispatch(chan<- *InstructionBase)
 }
 
-func ParseInstruction(instruction database.Log) (Instruction, error) {
-	event, err := ParseTeeInstructionsSent(instruction)
+func ParseInstruction(inLog database.Log) (Instruction, error) {
+	event, err := ParseTeeInstructionsSent(inLog)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +64,26 @@ func ParseInstruction(instruction database.Log) (Instruction, error) {
 	return in, nil
 }
 
+func Handle(inLog database.Log, r router.Router, out chan<- *InstructionBase) error {
+	instr, err := ParseInstruction(inLog)
+
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		err := instr.Process(r)
+
+		if err != nil {
+			return //TODO error handling
+		}
+
+		instr.Dispatch(out)
+	}()
+
+	return nil
+}
+
 type InstructionBase struct {
 	Event       *teeinstructions.TeeInstructionsTeeInstructionsSent
 	GeneralData instruction.Data // Data without TeeID
@@ -76,6 +98,10 @@ func (ib *InstructionBase) EventToData() {
 		OPCommand:       ib.Event.OpCommand,
 		OriginalMessage: ib.Event.Message,
 	}
+}
+
+func (ib *InstructionBase) Dispatch(iChan chan<- *InstructionBase) {
+	iChan <- ib
 }
 
 // HashesForSigning prepares hashes of instruction data that are to be signed.
