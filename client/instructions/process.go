@@ -9,19 +9,19 @@ type Plain struct {
 	InstructionBase
 }
 
-// Process just add signatures to p
+// Process just adds signatures to p.
 func (p *Plain) Process(r router.Router) error {
 	return p.sign(r)
 }
 
-// Plain is a type of instruction that needs additional augmentation before signing.
+// Augment is a type of instruction that needs additional augmentation before signing.
 //
-// Plain implements Instruction interface.
+// Augment implements Instruction interface.
 type Augment struct {
 	InstructionBase
 }
 
-// Process
+// Process augments p according to OPType and OPCommand and adds signatures.
 func (p *Augment) Process(r router.Router) error {
 	fixed, variable, err := r.Augment(p.Event.OpType, p.Event.OpCommand, p.Event.Message)
 	if err != nil {

@@ -41,6 +41,7 @@ type Instruction interface {
 	Dispatch(chan<- *InstructionBase)
 }
 
+// ParseInstruction transforms database log to a designated implementation of Instruction interface.
 func ParseInstruction(inLog database.Log) (Instruction, error) {
 	event, err := ParseTeeInstructionsSent(inLog)
 	if err != nil {
@@ -64,6 +65,7 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 	return in, nil
 }
 
+// Handle parses, processes instruction log and passes it to out channel.
 func Handle(inLog database.Log, r router.Router, out chan<- *InstructionBase) error {
 	instr, err := ParseInstruction(inLog)
 
@@ -90,6 +92,10 @@ type InstructionBase struct {
 	Signatures  [][]byte
 }
 
+// EventToData copies relevant fields from Event to GeneralData.
+//
+// TeeID has to be set later when preparing the instruction for specific Tee.
+// AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
 func (ib *InstructionBase) EventToData() {
 	ib.GeneralData = instruction.Data{
 		InstructionID:   ib.Event.InstructionId,
@@ -100,6 +106,7 @@ func (ib *InstructionBase) EventToData() {
 	}
 }
 
+// Dispatch adds ib to the channel.
 func (ib *InstructionBase) Dispatch(iChan chan<- *InstructionBase) {
 	iChan <- ib
 }
@@ -123,6 +130,7 @@ func (ib *InstructionBase) hashesForSigning() ([]common.Hash, error) {
 	return hashes, nil
 }
 
+// sign sets signatures of instructions for each Tee.
 func (ib *InstructionBase) sign(r router.Router) error {
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
@@ -136,9 +144,4 @@ func (ib *InstructionBase) sign(r router.Router) error {
 	ib.Signatures = signatures
 
 	return nil
-}
-
-// PLACEHOLDER
-func FetchSignatures([]common.Hash) ([][]byte, error) {
-	return nil, nil
 }

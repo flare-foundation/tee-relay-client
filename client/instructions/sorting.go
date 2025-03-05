@@ -10,13 +10,15 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/walletmanager"
 )
 
+// Instruction Class refers to an implementation of Instruction interface
+//
+//   - Pl -> Plain
+//   - Aug -> Augment
 type InstructionClass int
 
 const (
 	Pl InstructionClass = iota
 	Aug
-	Sgn
-	AugAndSign
 )
 
 // OPToClass is a mapping from OPCommand to InstructionClass
@@ -63,17 +65,15 @@ func init() {
 	}
 }
 
-// toBytes32 returns Solidity's bytes32(s)
+// toBytes32 returns Solidity's bytes32(s) ([]byte(s) appended with zeros to length 32)
 //
-// TODO optimize
+// String s can be at most 32 characters long, otherwise an error is returned.
 func toBytes32(s string) (common.Hash, error) {
 	if len(s) > 32 {
 		return common.Hash{}, fmt.Errorf("String %s too long. At most 32 characters allowed", s)
 	}
-
-	b := []byte(s)
 	x := [32]byte{}
-	copy(x[:], b)
+	copy(x[:], s)
 
 	return x, nil
 }

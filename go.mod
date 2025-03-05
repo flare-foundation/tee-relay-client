@@ -5,6 +5,7 @@ go 1.23.4
 require (
 	github.com/ethereum/go-ethereum v1.15.0
 	github.com/flare-foundation/go-flare-common v1.2.1-0.20250304150428-1c6ede806075
+	github.com/stretchr/testify v1.10.0
 	gorm.io/gorm v1.25.12
 )
 
@@ -17,6 +18,7 @@ require (
 	github.com/consensys/gnark-crypto v0.15.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set/v2 v2.7.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/ethereum/c-kzg-4844 v1.0.3 // indirect
@@ -30,6 +32,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/supranational/blst v0.3.13 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
@@ -43,6 +46,7 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.7 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )

@@ -24,6 +24,12 @@ type Response struct {
 	Signatures []hexutil.Bytes `json:"signatures"`
 }
 
+type SignerConfig struct {
+	APIKeyName string `toml:"api_key_name"`
+	APIKey     string `toml:"api_key"`
+	URL        string `toml:"url"`
+}
+
 type Signer struct {
 	key utils.APIKey
 	url string
