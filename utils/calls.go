@@ -13,6 +13,13 @@ import (
 const timeout = 5 * time.Second    // maximal duration for the server to resolve the query
 const maxRespSize = 10 * (1 << 20) // 10 MB for maximal response size of the server
 
+func NewApiKey(name, key string) APIKey {
+	return APIKey{
+		name: name,
+		key:  key,
+	}
+}
+
 type APIKey struct {
 	name string
 	key  string

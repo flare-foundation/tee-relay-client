@@ -1,13 +1,15 @@
 package instructions
 
 import (
+	"context"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/instruction"
-	"github.com/flare-foundation/tee-relay-client/client/router"
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
@@ -36,9 +38,16 @@ func ParseTeeInstructionsSent(instruction database.Log) (*teeinstructions.TeeIns
 // Instruction allows instruction handling.
 type Instruction interface {
 	// Process prepares the instruction to be sent to Tees
-	Process(router.Router) error
+	Process(Router) error
 	// Dispatch instruction to sender
 	Dispatch(chan<- *InstructionBase)
+}
+
+type Router interface {
+	Sign([]common.Hash) ([]hexutil.Bytes, error)
+	Augment(common.Hash, common.Hash, hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error)
+
+	Run(context.Context, <-chan []database.Log, chan<- *InstructionBase)
 }
 
 // ParseInstruction transforms database log to a designated implementation of Instruction interface.
@@ -51,7 +60,7 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 	ib.Event = event
 	ib.EventToData()
 
-	InClass := OPToClass[ib.Event.OpCommand]
+	InClass := OPToInstClass[ib.Event.OpCommand]
 
 	var in Instruction
 
@@ -66,7 +75,7 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 }
 
 // Handle parses, processes instruction log and passes it to out channel.
-func Handle(inLog database.Log, r router.Router, out chan<- *InstructionBase) error {
+func Handle(inLog database.Log, r Router, out chan<- *InstructionBase) error {
 	instr, err := ParseInstruction(inLog)
 
 	if err != nil {
@@ -89,7 +98,7 @@ func Handle(inLog database.Log, r router.Router, out chan<- *InstructionBase) er
 type InstructionBase struct {
 	Event       *teeinstructions.TeeInstructionsTeeInstructionsSent
 	GeneralData instruction.Data // Data without TeeID
-	Signatures  [][]byte
+	Signatures  []hexutil.Bytes
 }
 
 // EventToData copies relevant fields from Event to GeneralData.
@@ -131,7 +140,7 @@ func (ib *InstructionBase) hashesForSigning() ([]common.Hash, error) {
 }
 
 // sign sets signatures of instructions for each Tee.
-func (ib *InstructionBase) sign(r router.Router) error {
+func (ib *InstructionBase) sign(r Router) error {
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
 		return err

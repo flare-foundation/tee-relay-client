@@ -1,4 +1,4 @@
-package instructions
+package utils
 
 import (
 	"strings"
@@ -31,7 +31,7 @@ func TestToBytes32(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		out, err := toBytes32(test.in)
+		out, err := ToBytes32(test.in)
 
 		if test.err {
 			require.Error(t, err, test.in)

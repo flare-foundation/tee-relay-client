@@ -15,28 +15,30 @@ import (
 const sendSignedInstructions = "/send-signed-instruction"
 
 type Sender struct {
-	in <-chan instructions.InstructionBase
 }
 
-func (s Sender) Run(ctx context.Context) {
+func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 	for {
-		instr := <-s.in
+
+		if ctx.Err() != nil {
+			//TODO
+			return
+		}
+
+		instr := <-in
 
 		for j := range instr.Event.TeeMachines {
 
 			go func() {
-				in, url, err := prepareInstruction(instr, j)
-
+				in, url, err := prepareInstruction(*instr, j)
 				if err != nil {
 					return //TODO error handling
 				}
 
 				err = sendToTee(ctx, url, *in)
-
 				if err != nil {
 					return //TODO error handling
 				}
-
 			}()
 		}
 	}

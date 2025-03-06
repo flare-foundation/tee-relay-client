@@ -1,7 +1,5 @@
 package instructions
 
-import "github.com/flare-foundation/tee-relay-client/client/router"
-
 // Plain is a type of instruction that need no additional augmentation, just the signatures of the instruction.
 //
 // Plain implements Instruction interface.
@@ -10,7 +8,7 @@ type Plain struct {
 }
 
 // Process just adds signatures to p.
-func (p *Plain) Process(r router.Router) error {
+func (p *Plain) Process(r Router) error {
 	return p.sign(r)
 }
 
@@ -22,7 +20,7 @@ type Augment struct {
 }
 
 // Process augments p according to OPType and OPCommand and adds signatures.
-func (p *Augment) Process(r router.Router) error {
+func (p *Augment) Process(r Router) error {
 	fixed, variable, err := r.Augment(p.Event.OpType, p.Event.OpCommand, p.Event.Message)
 	if err != nil {
 		return err

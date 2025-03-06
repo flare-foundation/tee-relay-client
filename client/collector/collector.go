@@ -8,7 +8,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/tee-relay-client/client/config"
 	"gorm.io/gorm"
 )
 
@@ -34,24 +33,29 @@ type Collector struct {
 }
 
 // New creates new Collector from user config
-func New(cfg *config.User) *Collector {
-	db, err := database.Connect(&cfg.DB)
+func New(cfg *database.Config, teeInstructions common.Address) *Collector {
+	db, err := database.Connect(cfg)
 	if err != nil {
 		logger.Panic("Could not connect to database:", err)
 	}
 
-	collector := Collector{DB: db}
+	collector := Collector{TeeInstructions: teeInstructions, DB: db}
 
 	return &collector
 }
 
-// InstructionsListener repeatedly queries db for teeInstructionsSent events emitted by teeInstructions smart contracts and pushes them on to the instructions instructions channel.
-func InstructionsListener(
+// TODO listener interval
+func (c Collector) Run(ctx context.Context, out chan<- []database.Log) {
+	go instructionsListener(ctx, c.DB, c.TeeInstructions, 5*time.Second, out)
+}
+
+// instructionsListener repeatedly queries db for teeInstructionsSent events emitted by teeInstructions smart contracts and pushes them on to the instructions instructions channel.
+func instructionsListener(
 	ctx context.Context,
 	db *gorm.DB,
 	teeInstructions common.Address,
 	listenerInterval time.Duration,
-	instructions chan<- []database.Log,
+	out chan<- []database.Log,
 ) {
 	trigger := time.NewTicker(listenerInterval)
 
@@ -97,7 +101,7 @@ func InstructionsListener(
 
 		if len(logs) > 0 {
 			select {
-			case instructions <- logs:
+			case out <- logs:
 			case <-ctx.Done():
 				logger.Info("AttestationRequestListener exiting:", ctx.Err())
 				return
