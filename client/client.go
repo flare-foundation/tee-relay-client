@@ -5,7 +5,9 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/tee-relay-client/client/collector"
+	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
+	"github.com/flare-foundation/tee-relay-client/client/router"
 	"github.com/flare-foundation/tee-relay-client/client/sender"
 )
 
@@ -16,12 +18,22 @@ type Client struct {
 }
 
 func (c Client) Run(ctx context.Context) {
-
 	cToR := make(chan []database.Log, 50) //todo buffer
 	rToS := make(chan *instructions.InstructionBase, 50)
 
-	c.collector.Run(ctx, cToR)
-	c.router.Run(ctx, cToR, rToS)
-	c.sender.Run(ctx, rToS)
+	go c.collector.Run(ctx, cToR)
+	go c.router.Run(ctx, cToR, rToS)
+	go c.sender.Run(ctx, rToS)
+}
 
+func New(cfg config.Config) Client {
+	c := collector.New(&cfg.DB, cfg.TeeInstructions)
+	r := router.NewNeki(cfg.Signer, cfg.XRP, cfg.BTC)
+	s := sender.Sender{}
+
+	return Client{
+		collector: *c,
+		router:    r,
+		sender:    s,
+	}
 }

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/tee-relay-client/client"
 	"github.com/flare-foundation/tee-relay-client/client/config"
 )
 
@@ -17,4 +20,9 @@ func main() {
 
 	logger.Set(cfg.Logging)
 
+	ctx := context.Background()
+
+	cl := client.New(*cfg)
+
+	cl.Run(ctx)
 }
