@@ -46,8 +46,28 @@ type Instruction interface {
 type Router interface {
 	Sign([]common.Hash) ([]hexutil.Bytes, error)
 	Augment(common.Hash, common.Hash, hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error)
+}
 
-	Run(context.Context, <-chan []database.Log, chan<- *InstructionBase)
+func Run(ctx context.Context, router Router, in <-chan []database.Log, out chan<- *InstructionBase) {
+	var instructionEvents []database.Log
+
+	for {
+		select {
+		case <-ctx.Done():
+			// TODO
+			return
+		case instructionEvents = <-in:
+
+			for j := range instructionEvents {
+
+				err := Handle(instructionEvents[j], router, out)
+				if err != nil {
+					// TODO
+					logger.Debugf("parsing :%v", err)
+				}
+			}
+		}
+	}
 }
 
 // ParseInstruction transforms database log to a designated implementation of Instruction interface.

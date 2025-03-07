@@ -27,10 +27,11 @@ type APIKey struct {
 
 var NoAPIKey = APIKey{"", ""}
 
-func POST[T any](ctx context.Context, url string, apiKey APIKey, body []byte, response T) error {
+// POST sends a post request with body and apiKey in header to url and unmarshals the response to response.
+func POST[T any](ctx context.Context, url string, apiKey APIKey, body []byte, response *T) error {
 	client := &http.Client{Timeout: timeout}
 
-	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

@@ -22,7 +22,7 @@ func (c Client) Run(ctx context.Context) {
 	rToS := make(chan *instructions.InstructionBase, 50)
 
 	go c.collector.Run(ctx, cToR)
-	go c.router.Run(ctx, cToR, rToS)
+	go instructions.Run(ctx, c.router, cToR, rToS)
 	go c.sender.Run(ctx, rToS)
 }
 

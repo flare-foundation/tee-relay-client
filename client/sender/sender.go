@@ -19,7 +19,6 @@ type Sender struct {
 
 func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 	for {
-
 		if ctx.Err() != nil {
 			//TODO
 			return
@@ -28,7 +27,6 @@ func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase
 		instr := <-in
 
 		for j := range instr.Event.TeeMachines {
-
 			go func() {
 				in, url, err := prepareInstruction(*instr, j)
 				if err != nil {

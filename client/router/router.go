@@ -7,10 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/client/config"
-	"github.com/flare-foundation/tee-relay-client/client/instructions"
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
@@ -106,27 +104,5 @@ func (n Neki) Augment(opType common.Hash, opCommand common.Hash, message hexutil
 		return n.btc.Augment(ctx, opType, opCommand, message)
 	default:
 		return nil, nil, fmt.Errorf("invalid augmentation OPCommand %v", string(opCommand[:]))
-	}
-}
-
-func (ni Neki) Run(ctx context.Context, in <-chan []database.Log, out chan<- *instructions.InstructionBase) {
-	var instructionEvents []database.Log
-
-	for {
-		select {
-		case <-ctx.Done():
-			// TODO
-			return
-		case instructionEvents = <-in:
-
-			for j := range instructionEvents {
-
-				err := instructions.Handle(instructionEvents[j], ni, out)
-				if err != nil {
-					// TODO
-					logger.Debugf("parsing :%v", err)
-				}
-			}
-		}
 	}
 }

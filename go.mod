@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/ethereum/go-ethereum v1.15.0
-	github.com/flare-foundation/go-flare-common v1.2.1-0.20250306132330-24878a24c391
+	github.com/flare-foundation/go-flare-common v1.2.1-0.20250307094147-ad7258a9e407
 	github.com/stretchr/testify v1.10.0
 	gorm.io/gorm v1.25.12
 )

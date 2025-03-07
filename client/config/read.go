@@ -1,10 +1,10 @@
 package config
 
-import "github.com/flare-foundation/go-flare-common/toml"
+import "github.com/flare-foundation/go-flare-common/pkg/toml"
 
-// ReadConfigs reads user and system configurations from filePath
+// ReadConfigs reads configs from toml file at filePath
 func ReadConfigs(filepath string) (*Config, error) {
-	config, err := toml.ReadToml[Config](filepath)
+	config, err := toml.ReadToml[Config](filepath, true)
 	if err != nil {
 		return nil, err
 	}
