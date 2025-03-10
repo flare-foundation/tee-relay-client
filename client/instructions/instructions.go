@@ -21,7 +21,7 @@ func init() {
 
 	teeFilterer, err = teeinstructions.NewTeeInstructionsFilterer(common.Address{}, nil)
 	if err != nil {
-		logger.Panic("cannot get fdc contract:", err)
+		logger.Panic("cannot get tee instructions filterer:", err)
 	}
 }
 
@@ -57,9 +57,7 @@ func Run(ctx context.Context, router Router, in <-chan []database.Log, out chan<
 			// TODO
 			return
 		case instructionEvents = <-in:
-
 			for j := range instructionEvents {
-
 				err := Handle(instructionEvents[j], router, out)
 				if err != nil {
 					// TODO
@@ -78,7 +76,7 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 	}
 	var ib InstructionBase
 	ib.Event = event
-	ib.EventToData()
+	ib.EventToData(uint32(inLog.Timestamp))
 
 	InClass := OPToInstClass[ib.Event.OpCommand]
 
@@ -104,7 +102,6 @@ func Handle(inLog database.Log, r Router, out chan<- *InstructionBase) error {
 
 	go func() {
 		err := instr.Process(r)
-
 		if err != nil {
 			return //TODO error handling
 		}
@@ -121,13 +118,14 @@ type InstructionBase struct {
 	Signatures  []hexutil.Bytes
 }
 
-// EventToData copies relevant fields from Event to GeneralData.
+// EventToData copies relevant fields from Event to GeneralData. Timestamp should be recovered from the block.
 //
 // TeeID has to be set later when preparing the instruction for specific Tee.
 // AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
-func (ib *InstructionBase) EventToData() {
+func (ib *InstructionBase) EventToData(timestamp uint32) {
 	ib.GeneralData = instruction.Data{
 		InstructionID:   ib.Event.InstructionId,
+		Timestamp:       timestamp,
 		RewardEpochID:   ib.Event.RewardEpochId,
 		OPType:          ib.Event.OpType,
 		OPCommand:       ib.Event.OpCommand,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -61,18 +62,28 @@ func (s signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 		return nil, err
 	}
 
-	response := Response{}
+	fn := func() ([]hexutil.Bytes, error) {
+		response := Response{}
 
-	err = utils.POST(ctx, s.url, s.key, encodedBody, &response)
-	if err != nil {
-		return nil, err
+		err = utils.POST(ctx, s.url, s.key, encodedBody, &response)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(hashes) != len(response.Signatures) {
+			return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Signatures))
+		}
+
+		return response.Signatures, nil
 	}
 
-	if len(hashes) != len(response.Signatures) {
-		return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Signatures))
+	res := utils.ExecuteWithRetry(ctx, fn, 3, 10*time.Second)
+
+	if res.Success {
+		return res.Value, nil
 	}
 
-	return response.Signatures, nil
+	return nil, res.Err
 }
 
 // implements Router interface

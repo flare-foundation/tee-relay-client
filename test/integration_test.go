@@ -19,7 +19,6 @@ import (
 const TeeInstructionsAddress = "0x1bB2e744E5f7aFFC0dA0d87FA723Ae679f08ca80"
 
 type TestRouter struct {
-	t   *testing.T
 	prv *ecdsa.PrivateKey
 }
 
@@ -49,7 +48,6 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 
 	router := TestRouter{
-		t:   t,
 		prv: prv,
 	}
 

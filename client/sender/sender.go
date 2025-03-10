@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
@@ -14,32 +15,36 @@ import (
 
 const sendSignedInstructions = "/send-signed-instruction"
 
+// todo do we need this?
 type Sender struct {
 }
 
 func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
-	for {
-		if ctx.Err() != nil {
-			//TODO
-			return
+
+	go func() {
+		for {
+			if ctx.Err() != nil {
+				//TODO
+				return
+			}
+
+			instr := <-in
+
+			for j := range instr.Event.TeeMachines {
+				go func() {
+					in, url, err := PrepareInstruction(*instr, j)
+					if err != nil {
+						return //TODO error handling
+					}
+
+					err = SendToTee(ctx, url, *in)
+					if err != nil {
+						return //TODO error handling
+					}
+				}()
+			}
 		}
-
-		instr := <-in
-
-		for j := range instr.Event.TeeMachines {
-			go func() {
-				in, url, err := prepareInstruction(*instr, j)
-				if err != nil {
-					return //TODO error handling
-				}
-
-				err = sendToTee(ctx, url, *in)
-				if err != nil {
-					return //TODO error handling
-				}
-			}()
-		}
-	}
+	}()
 }
 
 func sendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
@@ -51,13 +56,30 @@ func sendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 		return err
 	}
 
-	var x any //TODO
+	var x any //TODO process response
 
 	err = utils.POST[any](ctx, urlEndpoint, utils.NoAPIKey, body, &x)
 	return err
 }
 
-func prepareInstruction(ib instructions.InstructionBase, j int) (*instruction.Instruction, string, error) {
+func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
+	fn := func() (any, error) {
+		err := sendToTee(ctx, url, instr)
+		return nil, err
+	}
+
+	res := utils.ExecuteWithRetry(ctx, fn, 3, 30*time.Second)
+
+	if !res.Success {
+		return res.Err
+	}
+
+	return nil
+
+}
+
+// PrepareInstruction prepares instruction for j-th tee machine.
+func PrepareInstruction(ib instructions.InstructionBase, j int) (*instruction.Instruction, string, error) {
 	if j < 0 || j > len(ib.Event.TeeMachines) {
 		return nil, "", fmt.Errorf("invalid tee index %d. Should be in  [0,%d)", j, len(ib.Event.TeeMachines))
 	}

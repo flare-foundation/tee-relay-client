@@ -28,25 +28,34 @@ func init() {
 }
 
 type Collector struct {
-	TeeInstructions common.Address
 	DB              *gorm.DB
+	teeInstructions common.Address
 }
 
-// New creates new Collector from user config
+// New creates a new Collector that connects to database.
 func New(cfg *database.Config, teeInstructions common.Address) *Collector {
 	db, err := database.Connect(cfg)
 	if err != nil {
 		logger.Panic("Could not connect to database:", err)
 	}
 
-	collector := Collector{TeeInstructions: teeInstructions, DB: db}
+	collector := Collector{DB: db, teeInstructions: teeInstructions}
 
 	return &collector
 }
 
-// TODO listener interval
+// Run starts a goroutine in which collector listens to TeeInstructionsSent events and sends them to out channel.
 func (c Collector) Run(ctx context.Context, out chan<- []database.Log) {
-	go instructionsListener(ctx, c.DB, c.TeeInstructions, 5*time.Second, out)
+	syncParams := database.SyncParams{
+		Retries:            30,
+		OutOfSyncTolerance: 10 * time.Second,
+		MaxSleepTime:       10 * time.Minute,
+		MinSleepTime:       5 * time.Second,
+	}
+
+	database.WaitCIndexerToSync(ctx, c.DB, syncParams)
+
+	go instructionsListener(ctx, c.DB, c.teeInstructions, 5*time.Second, out) // todo interval length
 }
 
 // instructionsListener repeatedly queries db for teeInstructionsSent events emitted by teeInstructions smart contracts and pushes them on to the instructions instructions channel.

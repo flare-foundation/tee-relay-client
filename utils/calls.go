@@ -64,3 +64,38 @@ func POST[T any](ctx context.Context, url string, apiKey APIKey, body []byte, re
 
 	return nil
 }
+
+type ExecuteStatus[T any] struct {
+	Success bool
+	Err     error
+	Value   T
+}
+
+func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), maxAttempts int, delay time.Duration) ExecuteStatus[T] {
+	ticker := time.NewTicker(delay)
+	var result ExecuteStatus[T]
+
+	var err error
+	var r T
+
+	for j := 0; j < maxAttempts; j++ {
+		if err = ctx.Err(); err != nil {
+			result.Err = fmt.Errorf("context canceled mid retry: %v", err)
+			return result
+		}
+
+		r, err = f()
+
+		if err == nil {
+			result.Success = true
+			result.Value = r
+			return result
+		}
+
+		<-ticker.C
+	}
+
+	result.Err = fmt.Errorf("max retries reached: %v", err)
+
+	return result
+}

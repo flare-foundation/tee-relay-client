@@ -21,7 +21,7 @@ func (c Client) Run(ctx context.Context) {
 	cToR := make(chan []database.Log, 50) //todo buffer
 	rToS := make(chan *instructions.InstructionBase, 50)
 
-	go c.collector.Run(ctx, cToR)
+	c.collector.Run(ctx, cToR)
 	go instructions.Run(ctx, c.router, cToR, rToS)
 	go c.sender.Run(ctx, rToS)
 }
