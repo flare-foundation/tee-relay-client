@@ -52,10 +52,14 @@ github.com/ethereum/go-ethereum v1.15.0 h1:LLb2jCPsbJZcB4INw+E/MgzUX5wlR6SdwXcv0
 github.com/ethereum/go-ethereum v1.15.0/go.mod h1:4q+4t48P2C03sjqGvTXix5lEOplf5dz4CTosbjt5tGs=
 github.com/ethereum/go-verkle v0.2.2 h1:I2W0WjnrFUIzzVPwm8ykY+7pL2d4VhlsePn4j7cnFk8=
 github.com/ethereum/go-verkle v0.2.2/go.mod h1:M3b90YRnzqKyyzBEWJGqj8Qff4IDeXnzFw0P9bFw3uk=
+github.com/flare-foundation/go-flare-common v1.2.0 h1:6xkFMr/qZGMw6ULWw6uaDLhiHls2XK1D/FEVDRFihC8=
+github.com/flare-foundation/go-flare-common v1.2.0/go.mod h1:u844RxubdWw9KNXV+1N6aud6lQsYrhg2nz8acJB9MCw=
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250306132330-24878a24c391 h1:sI60+qJKZxSay7K4BynXoa4WJQQupk7HsLuscRXnb30=
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250306132330-24878a24c391/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250307094147-ad7258a9e407 h1:LfNmmaw9hC9Rr66ZN0f7lKa+m7GF7QBN62IjrB4cjDo=
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250307094147-ad7258a9e407/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
+github.com/flare-foundation/go-flare-common v1.2.1-0.20250310124900-4657c1a4a2b6 h1:04XK/vD2ImxENMW4I+olZJc6ughKp7uE1JIDsjcuHAY=
+github.com/flare-foundation/go-flare-common v1.2.1-0.20250310124900-4657c1a4a2b6/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
 github.com/fsnotify/fsnotify v1.8.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/getsentry/sentry-go v0.27.0 h1:Pv98CIbtB3LkMWmXi4Joa5OOcwbmnX88sF5qbK3r3Ps=

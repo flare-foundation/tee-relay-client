@@ -5,7 +5,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/registry"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/walletmanager"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
@@ -30,13 +30,13 @@ var plainCommands = []string{
 	string(registry.ReplicateFrom),
 
 	// WALLET
-	string(walletmanager.KeyGenerate),
-	string(walletmanager.KeyDelete),
-	string(walletmanager.KeyMachineBackup),
-	string(walletmanager.KeyMachineRestore),
-	string(walletmanager.KeyMachineBackupRemove),
-	string(walletmanager.KeyCustodianBackup),
-	string(walletmanager.KeyCustodianRestore),
+	string(wallet.KeyGenerate),
+	string(wallet.KeyDelete),
+	string(wallet.KeyMachineBackup),
+	string(wallet.KeyMachineRestore),
+	string(wallet.KeyMachineBackupRemove),
+	string(wallet.KeyCustodianBackup),
+	string(wallet.KeyCustodianRestore),
 }
 
 var augmentCommands = []string{

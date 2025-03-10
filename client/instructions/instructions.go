@@ -9,7 +9,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/instruction"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
