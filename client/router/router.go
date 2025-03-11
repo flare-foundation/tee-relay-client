@@ -80,13 +80,14 @@ func (s signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 
 }
 
-// implements Router interface
+// Router implements instructions.Router interface
 type Router struct {
 	signer signer
 	xrp    augmenter
 	btc    augmenter
 }
 
+// New creates new Router from config
 func New(signerCred, xrpCred, btcCred config.Credentials) Router {
 	return Router{
 		signer: signer(Pack(signerCred)),
@@ -95,10 +96,12 @@ func New(signerCred, xrpCred, btcCred config.Credentials) Router {
 	}
 }
 
+// Sign gets signatures of hashes from signer.
 func (r Router) Sign(hashes []common.Hash) ([]hexutil.Bytes, error) {
 	return r.signer.FetchSignatures(context.TODO(), hashes)
 }
 
+// Augment gets additional fixed and additional variable message
 func (r Router) Augment(opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
 	ctx := context.TODO()
 
