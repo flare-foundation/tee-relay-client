@@ -28,7 +28,7 @@ func (c Client) Run(ctx context.Context) {
 
 func New(cfg config.Config) Client {
 	c := collector.New(&cfg.DB, cfg.TeeInstructions)
-	r := router.NewNeki(cfg.Signer, cfg.XRP, cfg.BTC)
+	r := router.New(cfg.Signer, cfg.XRP, cfg.BTC)
 	s := sender.Sender{}
 
 	return Client{

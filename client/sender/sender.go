@@ -47,7 +47,7 @@ func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase
 	}()
 }
 
-func sendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
+func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
 	urlEndpoint := url + sendSignedInstructions
 
 	body, err := json.Marshal(instr)
@@ -56,26 +56,12 @@ func sendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 		return err
 	}
 
-	var x any //TODO process response
-
-	err = utils.POST[any](ctx, urlEndpoint, utils.NoAPIKey, body, &x)
+	_, err = utils.PostWithRetry[any](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
+		MaxAttempts: 3,
+		Delay:       10 * time.Second,
+		Timeout:     time.Minute,
+	})
 	return err
-}
-
-func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
-	fn := func() (any, error) {
-		err := sendToTee(ctx, url, instr)
-		return nil, err
-	}
-
-	res := utils.ExecuteWithRetry(ctx, fn, 3, 30*time.Second)
-
-	if !res.Success {
-		return res.Err
-	}
-
-	return nil
-
 }
 
 // PrepareInstruction prepares instruction for j-th tee machine.

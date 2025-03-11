@@ -62,57 +62,51 @@ func (s signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 		return nil, err
 	}
 
-	fn := func() ([]hexutil.Bytes, error) {
-		response := Response{}
+	response, err := utils.PostWithRetry[Response](ctx, s.url, s.key, encodedBody, utils.RetryParams{
+		MaxAttempts: 3,
+		Delay:       10 * time.Second,
+		Timeout:     time.Minute,
+	})
 
-		err = utils.POST(ctx, s.url, s.key, encodedBody, &response)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(hashes) != len(response.Signatures) {
-			return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Signatures))
-		}
-
-		return response.Signatures, nil
+	if err != nil {
+		return nil, err
 	}
 
-	res := utils.ExecuteWithRetry(ctx, fn, 3, 10*time.Second)
-
-	if res.Success {
-		return res.Value, nil
+	if len(hashes) != len(response.Signatures) {
+		return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Signatures))
 	}
 
-	return nil, res.Err
+	return response.Signatures, nil
+
 }
 
 // implements Router interface
-type Neki struct {
+type Router struct {
 	signer signer
 	xrp    augmenter
 	btc    augmenter
 }
 
-func NewNeki(signerCred, xrpCred, btcCred config.Credentials) Neki {
-	return Neki{
+func New(signerCred, xrpCred, btcCred config.Credentials) Router {
+	return Router{
 		signer: signer(Pack(signerCred)),
 		xrp:    augmenter(Pack(xrpCred)),
 		btc:    augmenter(Pack(btcCred)),
 	}
 }
 
-func (n Neki) Sign(hashes []common.Hash) ([]hexutil.Bytes, error) {
-	return n.signer.FetchSignatures(context.TODO(), hashes)
+func (r Router) Sign(hashes []common.Hash) ([]hexutil.Bytes, error) {
+	return r.signer.FetchSignatures(context.TODO(), hashes)
 }
 
-func (n Neki) Augment(opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
+func (r Router) Augment(opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
 	ctx := context.TODO()
 
 	switch opCommand {
 	case xrpOP:
-		return n.xrp.Augment(ctx, opType, opCommand, message)
+		return r.xrp.Augment(ctx, opType, opCommand, message)
 	case btcOP:
-		return n.btc.Augment(ctx, opType, opCommand, message)
+		return r.btc.Augment(ctx, opType, opCommand, message)
 	default:
 		return nil, nil, fmt.Errorf("invalid augmentation OPCommand %v", string(opCommand[:]))
 	}

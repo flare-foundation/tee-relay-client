@@ -27,13 +27,13 @@ type APIKey struct {
 
 var NoAPIKey = APIKey{"", ""}
 
-// POST sends a post request with body and apiKey in header to url and unmarshals the response to response.
-func POST[T any](ctx context.Context, url string, apiKey APIKey, body []byte, response *T) error {
+// post sends a post request with body and apiKey in header to url and unmarshals the response to response.
+func post[T any](ctx context.Context, url string, apiKey APIKey, body []byte) (*T, error) {
 	client := &http.Client{Timeout: timeout}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -44,11 +44,11 @@ func POST[T any](ctx context.Context, url string, apiKey APIKey, body []byte, re
 
 	resp, err := client.Do(request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("request responded with code %d", resp.StatusCode)
+		return nil, fmt.Errorf("request responded with code %d", resp.StatusCode)
 	}
 
 	respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
@@ -57,12 +57,14 @@ func POST[T any](ctx context.Context, url string, apiKey APIKey, body []byte, re
 	decoder := json.NewDecoder(respLimited)
 	decoder.DisallowUnknownFields()
 
+	response := new(T)
+
 	err = decoder.Decode(response)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return response, nil
 }
 
 type ExecuteStatus[T any] struct {
@@ -71,16 +73,35 @@ type ExecuteStatus[T any] struct {
 	Value   T
 }
 
-func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), maxAttempts int, delay time.Duration) ExecuteStatus[T] {
-	ticker := time.NewTicker(delay)
+type RetryParams struct {
+	MaxAttempts int           // if non positive, number of attempts is not limited.
+	Delay       time.Duration // minimal delay between each attempts
+	Timeout     time.Duration // if zero, there is no Timeout
+
+}
+
+func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), params RetryParams) ExecuteStatus[T] {
+	var cancel context.CancelFunc
+
+	if params.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, params.Timeout)
+		defer cancel()
+	}
+
+	ticker := time.NewTicker(params.Delay)
 	var result ExecuteStatus[T]
 
 	var err error
 	var r T
 
-	for j := 0; j < maxAttempts; j++ {
+	increment := 1
+	if params.MaxAttempts <= 0 {
+		increment = 0
+	}
+
+	for j := 0; j < params.MaxAttempts; j += increment {
 		if err = ctx.Err(); err != nil {
-			result.Err = fmt.Errorf("context canceled mid retry: %v", err)
+			result.Err = fmt.Errorf("context error mid retry: %v", err)
 			return result
 		}
 
@@ -98,4 +119,14 @@ func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), maxAttemp
 	result.Err = fmt.Errorf("max retries reached: %v", err)
 
 	return result
+}
+
+func PostWithRetry[T any](ctx context.Context, url string, apiKey APIKey, body []byte, retryParams RetryParams) (*T, error) {
+	fn := func() (*T, error) {
+		return post[T](ctx, url, apiKey, body)
+	}
+
+	res := ExecuteWithRetry(ctx, fn, retryParams)
+
+	return res.Value, res.Err
 }

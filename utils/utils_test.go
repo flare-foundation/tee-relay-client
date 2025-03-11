@@ -128,16 +128,14 @@ func TestPOST(t *testing.T) {
 	reqMarshaled, err := json.Marshal(request)
 	require.NoError(t, err)
 
-	response := res{}
-
 	url := fmt.Sprintf("http://localhost:%d/abs", port)
 
-	err = POST(context.Background(), url, NoAPIKey, reqMarshaled, &response)
+	response, err := post[res](context.Background(), url, NoAPIKey, reqMarshaled)
 	require.NoError(t, err)
 
 	expected := res{10}
 
-	require.Equal(t, expected, response)
+	require.Equal(t, expected, *response)
 
 	err = server.Shutdown(context.Background())
 	require.NoError(t, err)

@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -34,9 +35,11 @@ func (a augmenter) Augment(ctx context.Context, opType common.Hash, opCommand co
 		return nil, nil, err
 	}
 
-	response := AugResponse{}
-
-	err = utils.POST(ctx, a.url, a.key, encodedBody, &response)
+	response, err := utils.PostWithRetry[AugResponse](ctx, a.url, a.key, encodedBody, utils.RetryParams{
+		MaxAttempts: 3,
+		Delay:       10 * time.Second,
+		Timeout:     time.Minute,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
