@@ -121,6 +121,7 @@ func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), params Re
 	return result
 }
 
+// PostWithRetry sends a post request and retries on unsuccessful attempts according to retry parameters.
 func PostWithRetry[T any](ctx context.Context, url string, apiKey APIKey, body []byte, retryParams RetryParams) (*T, error) {
 	fn := func() (*T, error) {
 		return post[T](ctx, url, apiKey, body)

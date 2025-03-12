@@ -60,6 +60,10 @@ github.com/flare-foundation/go-flare-common v1.2.1-0.20250307094147-ad7258a9e407
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250307094147-ad7258a9e407/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250310124900-4657c1a4a2b6 h1:04XK/vD2ImxENMW4I+olZJc6ughKp7uE1JIDsjcuHAY=
 github.com/flare-foundation/go-flare-common v1.2.1-0.20250310124900-4657c1a4a2b6/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
+github.com/flare-foundation/go-flare-common v1.2.1-0.20250312143100-7d5e70efe947 h1:x5XRf5EVRogx9o0q4zXO/E5jjXY/69+w7+LDXsLqmVo=
+github.com/flare-foundation/go-flare-common v1.2.1-0.20250312143100-7d5e70efe947/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
+github.com/flare-foundation/go-flare-common v1.2.1-0.20250312144733-06793f464bef h1:Y4Cbz08XUsUgzXBJfk9BMEQ5R7XjCT0W7Orec00cSrc=
+github.com/flare-foundation/go-flare-common v1.2.1-0.20250312144733-06793f464bef/go.mod h1:sWR0GGPmuzhRTl1wfgcZOocMeVE4bNiLigfnMpphKN8=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
 github.com/fsnotify/fsnotify v1.8.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/getsentry/sentry-go v0.27.0 h1:Pv98CIbtB3LkMWmXi4Joa5OOcwbmnX88sF5qbK3r3Ps=

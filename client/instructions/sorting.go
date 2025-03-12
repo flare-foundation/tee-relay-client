@@ -57,7 +57,7 @@ func init() {
 	}
 
 	for j := range augmentCommands {
-		hexCommand, err := utils.ToBytes32(plainCommands[j])
+		hexCommand, err := utils.ToBytes32(augmentCommands[j])
 		if err != nil {
 			logger.Panicf("populating OPToClass: %v", err)
 		}

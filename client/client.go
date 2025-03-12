@@ -13,7 +13,7 @@ import (
 
 type Client struct {
 	collector collector.Collector
-	router    instructions.Router
+	router    router.Router
 	sender    sender.Sender
 }
 
@@ -21,14 +21,14 @@ func (c Client) Run(ctx context.Context) {
 	cToR := make(chan []database.Log, 50) //todo buffer
 	rToS := make(chan *instructions.InstructionBase, 50)
 
-	c.collector.Run(ctx, cToR)
+	collector.Run(ctx, c.collector, cToR)
 	go instructions.Run(ctx, c.router, cToR, rToS)
 	go c.sender.Run(ctx, rToS)
 }
 
 func New(cfg config.Config) Client {
 	c := collector.New(&cfg.DB, cfg.TeeInstructions)
-	r := router.New(cfg.Signer, cfg.XRP, cfg.BTC)
+	r := router.New(&cfg.Signer, &cfg.XRP, &cfg.BTC)
 	s := sender.Sender{}
 
 	return Client{

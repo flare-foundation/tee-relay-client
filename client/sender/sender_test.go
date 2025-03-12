@@ -1,13 +1,17 @@
 package sender_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/signing"
+	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
+	"github.com/flare-foundation/tee-relay-client/client/router"
 	"github.com/flare-foundation/tee-relay-client/client/sender"
 	"github.com/flare-foundation/tee-relay-client/test"
 	"github.com/stretchr/testify/require"
@@ -27,18 +31,36 @@ func TestPrepareInstruction(t *testing.T) {
 		BlockNumber:     123,
 	}
 
-	instr, err := instructions.ParseInstruction(event)
+	ctx, cancel := context.WithCancel(context.Background())
 
+	instr, err := instructions.ParseInstruction(event)
 	require.NoError(t, err)
 
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	router := test.TestRouter{
-		Prv: prv,
+	cfg := signing.Config{
+		Addr:       ":8080",
+		APIKeyName: "X-API-KEY",
+		APIKeys:    []string{"123"},
 	}
 
-	err = instr.Process(router)
+	signer, cred := test.NewTestSigner(cfg, prv)
+
+	go func() {
+		err := signer.Run(ctx)
+		require.Error(t, err)
+	}()
+
+	nilCred := &config.Credentials{
+		APIKeyName: "",
+		APIKey:     "",
+		URL:        "",
+	}
+
+	router := router.New(cred, nilCred, nilCred)
+
+	err = instr.Process(ctx, router)
 	require.NoError(t, err)
 
 	out := make(chan *instructions.InstructionBase, 2)
@@ -68,6 +90,12 @@ func TestPrepareInstruction(t *testing.T) {
 	}()
 
 	wg.Wait()
+
+	err = signer.Shutdown(ctx)
+
+	fmt.Printf("err: %v\n", err)
+
+	cancel()
 
 	fmt.Printf("base.GeneralData: %v\n", base.GeneralData.TeeID)
 

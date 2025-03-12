@@ -2,6 +2,7 @@ package instructions
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -10,6 +11,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
+	"github.com/flare-foundation/tee-relay-client/client/router"
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
@@ -25,30 +27,15 @@ func init() {
 	}
 }
 
-// ParseTeeInstructionsSent tries to parse ParseTeeInstructionsSent log as stored in the c-chain indexer database
-func ParseTeeInstructionsSent(instruction database.Log) (*teeinstructions.TeeInstructionsTeeInstructionsSent, error) {
-	chainLog, err := events.ConvertDatabaseLogToChainLog(instruction)
-	if err != nil {
-		return nil, err
-	}
-
-	return teeFilterer.ParseTeeInstructionsSent(*chainLog)
-}
-
 // Instruction allows instruction handling.
 type Instruction interface {
 	// Process prepares the instruction to be sent to Tees
-	Process(Router) error
+	Process(context.Context, router.Router) error
 	// Dispatch instruction to sender
 	Dispatch(chan<- *InstructionBase)
 }
 
-type Router interface {
-	Sign([]common.Hash) ([]hexutil.Bytes, error)
-	Augment(common.Hash, common.Hash, hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error)
-}
-
-func Run(ctx context.Context, router Router, in <-chan []database.Log, out chan<- *InstructionBase) {
+func Run(ctx context.Context, router router.Router, in <-chan []database.Log, out chan<- *InstructionBase) {
 	var instructionEvents []database.Log
 
 	for {
@@ -58,7 +45,7 @@ func Run(ctx context.Context, router Router, in <-chan []database.Log, out chan<
 			return
 		case instructionEvents = <-in:
 			for j := range instructionEvents {
-				err := Handle(instructionEvents[j], router, out)
+				err := Handle(ctx, instructionEvents[j], router, out)
 				if err != nil {
 					// TODO
 					logger.Debugf("parsing :%v", err)
@@ -68,9 +55,19 @@ func Run(ctx context.Context, router Router, in <-chan []database.Log, out chan<
 	}
 }
 
+// parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database
+func parseTeeInstructionsSent(instruction database.Log) (*teeinstructions.TeeInstructionsTeeInstructionsSent, error) {
+	chainLog, err := events.ConvertDatabaseLogToChainLog(instruction)
+	if err != nil {
+		return nil, err
+	}
+
+	return teeFilterer.ParseTeeInstructionsSent(*chainLog)
+}
+
 // ParseInstruction transforms database log to a designated implementation of Instruction interface.
 func ParseInstruction(inLog database.Log) (Instruction, error) {
-	event, err := ParseTeeInstructionsSent(inLog)
+	event, err := parseTeeInstructionsSent(inLog)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +75,10 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 	ib.Event = event
 	ib.EventToData(uint32(inLog.Timestamp))
 
-	InClass := OPToInstClass[ib.Event.OpCommand]
-
+	InClass, exists := OPToInstClass[ib.Event.OpCommand]
+	if !exists {
+		return nil, fmt.Errorf("unsorted opCommand: %s", string(ib.Event.OpCommand[:]))
+	}
 	var in Instruction
 
 	switch InClass {
@@ -93,7 +92,7 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 }
 
 // Handle parses, processes instruction log and passes it to out channel.
-func Handle(inLog database.Log, r Router, out chan<- *InstructionBase) error {
+func Handle(ctx context.Context, inLog database.Log, r router.Router, out chan<- *InstructionBase) error {
 	instr, err := ParseInstruction(inLog)
 
 	if err != nil {
@@ -101,7 +100,7 @@ func Handle(inLog database.Log, r Router, out chan<- *InstructionBase) error {
 	}
 
 	go func() {
-		err := instr.Process(r)
+		err := instr.Process(ctx, r)
 		if err != nil {
 			return //TODO error handling
 		}
@@ -158,13 +157,13 @@ func (ib *InstructionBase) hashesForSigning() ([]common.Hash, error) {
 }
 
 // sign sets signatures of instructions for each Tee.
-func (ib *InstructionBase) sign(r Router) error {
+func (ib *InstructionBase) sign(ctx context.Context, r router.Router) error {
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
 		return err
 	}
 
-	signatures, err := r.Sign(toSign)
+	signatures, err := r.Sign(ctx, toSign)
 	if err != nil {
 		return err
 	}

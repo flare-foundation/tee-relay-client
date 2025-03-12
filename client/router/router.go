@@ -2,9 +2,7 @@ package router
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -32,79 +30,42 @@ func init() {
 	}
 }
 
-// move to common
-
-type Request struct {
-	Hashes []common.Hash `json:"hashes"`
-}
-type Response struct {
-	Signatures []hexutil.Bytes `json:"signatures"`
-}
-
-type credentials struct {
+type Credentials struct {
 	key utils.APIKey
 	url string
 }
 
-func Pack(cfgCreds config.Credentials) credentials {
-	return credentials{
+func Pack(cfgCreds *config.Credentials) Credentials {
+	return Credentials{
 		key: utils.NewApiKey(cfgCreds.APIKeyName, cfgCreds.APIKey),
 		url: cfgCreds.URL,
 	}
 }
 
-type signer credentials
-
-func (s signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
-	req := Request{hashes}
-	encodedBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := utils.PostWithRetry[Response](ctx, s.url, s.key, encodedBody, utils.RetryParams{
-		MaxAttempts: 3,
-		Delay:       10 * time.Second,
-		Timeout:     time.Minute,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(hashes) != len(response.Signatures) {
-		return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Signatures))
-	}
-
-	return response.Signatures, nil
-
-}
-
 // Router implements instructions.Router interface
 type Router struct {
-	signer signer
-	xrp    augmenter
-	btc    augmenter
+	signer Signer
+	xrp    augmenterWallet
+	btc    augmenterWallet
+	// tdc    augmenter
 }
 
 // New creates new Router from config
-func New(signerCred, xrpCred, btcCred config.Credentials) Router {
+func New(signerCred, xrpCred, btcCred *config.Credentials) Router {
 	return Router{
-		signer: signer(Pack(signerCred)),
-		xrp:    augmenter(Pack(xrpCred)),
-		btc:    augmenter(Pack(btcCred)),
+		signer: Signer(Pack(signerCred)),
+		xrp:    augmenterWallet(Pack(xrpCred)),
+		btc:    augmenterWallet(Pack(btcCred)),
 	}
 }
 
 // Sign gets signatures of hashes from signer.
-func (r Router) Sign(hashes []common.Hash) ([]hexutil.Bytes, error) {
-	return r.signer.FetchSignatures(context.TODO(), hashes)
+func (r Router) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
+	return r.signer.FetchSignatures(ctx, hashes)
 }
 
 // Augment gets additional fixed and additional variable message
-func (r Router) Augment(opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
-	ctx := context.TODO()
-
+func (r Router) Augment(ctx context.Context, opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
 	switch opCommand {
 	case xrpOP:
 		return r.xrp.Augment(ctx, opType, opCommand, message)

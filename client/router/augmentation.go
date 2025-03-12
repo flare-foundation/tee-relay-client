@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
-type augmenter credentials
+type augmenterWallet Credentials
 
 type AugRequest struct {
 	OPType    common.Hash   `json:"opType"`
@@ -23,7 +23,7 @@ type AugResponse struct {
 	VariableMessage hexutil.Bytes `json:"variableMessage"`
 }
 
-func (a augmenter) Augment(ctx context.Context, opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
+func (a augmenterWallet) Augment(ctx context.Context, opType common.Hash, opCommand common.Hash, message hexutil.Bytes) (hexutil.Bytes, hexutil.Bytes, error) {
 	req := AugRequest{
 		OPType:    opType,
 		OPCommand: opCommand,
