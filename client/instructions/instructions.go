@@ -39,18 +39,25 @@ type Instruction interface {
 func Run(ctx context.Context, router *router.Router, in <-chan []database.Log, out chan<- *InstructionBase) {
 	go func() {
 		var instructionEvents []database.Log
+		var ok bool
 
 		for {
 			select {
 			case <-ctx.Done():
-				// TODO
+				logger.Infof("closing instructions Run: %v", ctx.Err())
+				close(out)
 				return
-			case instructionEvents = <-in:
+			case instructionEvents, ok = <-in:
+				if !ok {
+					logger.Infof("closing instructions Run: in channel closed")
+					close(out)
+					return
+				}
+
 				for j := range instructionEvents {
 					err := Handle(ctx, instructionEvents[j], router, out)
 					if err != nil {
-						// TODO
-						logger.Debugf("parsing :%v", err)
+						logger.Errorf("error handling instruction %s: %v", instructionEvents[j].Topic1, err)
 					}
 				}
 			}
@@ -58,7 +65,7 @@ func Run(ctx context.Context, router *router.Router, in <-chan []database.Log, o
 	}()
 }
 
-// parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database
+// parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database.
 func parseTeeInstructionsSent(instruction database.Log) (*teeinstructions.TeeInstructionsTeeInstructionsSent, error) {
 	chainLog, err := events.ConvertDatabaseLogToChainLog(instruction)
 	if err != nil {
@@ -97,7 +104,6 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 // Handle parses, processes instruction log and passes it to out channel.
 func Handle(ctx context.Context, inLog database.Log, r *router.Router, out chan<- *InstructionBase) error {
 	instr, err := ParseInstruction(inLog)
-
 	if err != nil {
 		return err
 	}
@@ -105,7 +111,8 @@ func Handle(ctx context.Context, inLog database.Log, r *router.Router, out chan<
 	go func() {
 		err := instr.Process(ctx, r)
 		if err != nil {
-			return //TODO error handling
+			logger.Errorf("processing instruction %s, %v", inLog.Topic1, err)
+			return
 		}
 
 		instr.Dispatch(out)

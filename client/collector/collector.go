@@ -86,7 +86,8 @@ func instructionsListener(
 		select {
 		case <-trigger.C:
 		case <-ctx.Done():
-			logger.Info("AttestationRequestListener exiting:", ctx.Err())
+			logger.Info("instructionsListener exiting:", ctx.Err())
+			close(out)
 			return
 		}
 
@@ -112,7 +113,8 @@ func instructionsListener(
 			select {
 			case out <- logs:
 			case <-ctx.Done():
-				logger.Info("AttestationRequestListener exiting:", ctx.Err())
+				logger.Info("instructionsListener exiting:", ctx.Err())
+				close(out)
 				return
 			}
 		}

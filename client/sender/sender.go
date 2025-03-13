@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
 	"github.com/flare-foundation/tee-relay-client/utils"
@@ -19,23 +20,30 @@ const sendSignedInstructions = "/send-signed-instruction"
 func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 	go func() {
 		for {
-			if ctx.Err() != nil {
-				//TODO
+			if err := ctx.Err(); err != nil {
+				logger.Infof("closing sender Run: %v", err)
 				return
 			}
 
-			instr := <-in
+			instr, ok := <-in
+
+			if !ok {
+				logger.Infof("closing sender Run: in channel closed")
+				return
+			}
 
 			for j := range instr.Event.TeeMachines {
 				go func() {
-					instr, url, err := PrepareInstruction(*instr, j)
+					msg, url, err := PrepareInstruction(*instr, j)
 					if err != nil {
-						return //TODO error handling
+						logger.Errorf("preparing instruction %s for %d: %v", instr.Event.InstructionId, j, err)
+						return
 					}
 
-					err = SendToTee(ctx, url, *instr)
+					err = SendToTee(ctx, url, *msg)
 					if err != nil {
-						return //TODO error handling
+						logger.Errorf("sending instruction %s for %s to %s: %v", msg.Data.InstructionID, msg.Data.TeeID, url, err)
+						return
 					}
 				}()
 			}
@@ -63,8 +71,8 @@ func SendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 
 // PrepareInstruction prepares instruction for j-th tee machine.
 func PrepareInstruction(ib instructions.InstructionBase, j int) (*instruction.Instruction, string, error) {
-	if j < 0 || j > len(ib.Event.TeeMachines) {
-		return nil, "", fmt.Errorf("invalid tee index %d. Should be in  [0,%d)", j, len(ib.Event.TeeMachines))
+	if j < 0 || j >= len(ib.Event.TeeMachines) {
+		return nil, "", fmt.Errorf("invalid tee index %d. Should be in [0,%d)", j, len(ib.Event.TeeMachines))
 	}
 
 	data := ib.GeneralData

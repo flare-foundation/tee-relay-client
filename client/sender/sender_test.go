@@ -2,10 +2,9 @@ package sender_test
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
@@ -62,34 +61,23 @@ func TestPrepareInstruction(t *testing.T) {
 
 	base := <-out
 
-	var wg sync.WaitGroup
+	in, url, err := sender.PrepareInstruction(*base, 1)
+	require.NoError(t, err)
 
-	wg.Add(2)
+	teeID1 := common.HexToAddress("5B38Da6a701c568545dCfcB03FcB875f56beddC4")
+	expectedURL := "https://testnets.thegraph.com/subgraphs/id2/"
 
-	go func() {
-		in, url, _ := sender.PrepareInstruction(*base, 0)
+	require.Equal(t, teeID1, in.Data.TeeID)
+	require.Equal(t, expectedURL, url)
 
-		fmt.Printf("in0: %v\n", in.Data.TeeID)
-		fmt.Printf("url0: %v\n", url)
+	_, _, err = sender.PrepareInstruction(*base, 2)
+	require.Error(t, err)
 
-		wg.Done()
-	}()
-	go func() {
-		in, url, _ := sender.PrepareInstruction(*base, 1)
-
-		fmt.Printf("in1: %v\n", in.Data.TeeID)
-		fmt.Printf("url1: %v\n", url)
-		wg.Done()
-	}()
-
-	wg.Wait()
+	// chack that base is unchanged
+	require.Equal(t, base.GeneralData.TeeID, common.Address{})
 
 	err = signer.Shutdown(ctx)
-
-	fmt.Printf("err: %v\n", err)
+	require.NoError(t, err)
 
 	cancel()
-
-	fmt.Printf("base.GeneralData: %v\n", base.GeneralData.TeeID)
-
 }

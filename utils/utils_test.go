@@ -49,9 +49,6 @@ func TestToBytes32(t *testing.T) {
 		if test.err {
 			require.Error(t, err, test.in)
 		} else {
-
-			fmt.Printf("%s : %s \n", test.in, out)
-
 			wordEnd := len(test.in)
 			word := out[0:wordEnd]
 			rest := out[wordEnd:]
