@@ -50,7 +50,7 @@ func TestE2E(t *testing.T) {
 	in := make(chan []database.Log)
 	out := make(chan *instructions.InstructionBase)
 
-	go instructions.Run(ctx, router, in, out)
+	instructions.Run(ctx, router, in, out)
 
 	in <- events
 	x := <-out
