@@ -1,3 +1,4 @@
+# C-chain indexer db
 [db]
 host = "localhost"
 port = 3306
@@ -13,7 +14,7 @@ level = "DEBUG"
 console = true
 
 
-#  credentials for signer
+# credentials for signer
 [signer]
 url = ""
 key_name = ""
