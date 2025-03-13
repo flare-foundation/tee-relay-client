@@ -12,7 +12,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
-type Signer Credentials
+type Signer struct{ *Credentials }
 
 func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signing.RequestBody{Hashes: hashes}
@@ -21,7 +21,7 @@ func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 		return nil, err
 	}
 
-	response, err := utils.PostWithRetry[signing.ResponseBody](ctx, s.url, s.key, encodedBody, utils.RetryParams{
+	response, err := utils.PostWithRetry[signing.ResponseBody](ctx, s.URL, s.ApiKey(), encodedBody, utils.RetryParams{
 		MaxAttempts: 3,
 		Delay:       10 * time.Second,
 		Timeout:     time.Minute,

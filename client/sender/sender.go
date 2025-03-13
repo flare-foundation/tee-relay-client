@@ -15,12 +15,8 @@ import (
 
 const sendSignedInstructions = "/send-signed-instruction"
 
-// todo do we need this?
-type Sender struct {
-}
-
-func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
-
+// Run starts a go routine that listens to instructions from in channel and sends them to Tees.
+func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 	go func() {
 		for {
 			if ctx.Err() != nil {
@@ -32,12 +28,12 @@ func (s Sender) Run(ctx context.Context, in <-chan *instructions.InstructionBase
 
 			for j := range instr.Event.TeeMachines {
 				go func() {
-					in, url, err := PrepareInstruction(*instr, j)
+					instr, url, err := PrepareInstruction(*instr, j)
 					if err != nil {
 						return //TODO error handling
 					}
 
-					err = SendToTee(ctx, url, *in)
+					err = SendToTee(ctx, url, *instr)
 					if err != nil {
 						return //TODO error handling
 					}
@@ -56,6 +52,7 @@ func SendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 		return err
 	}
 
+	// todo handle response
 	_, err = utils.PostWithRetry[any](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
 		MaxAttempts: 3,
 		Delay:       10 * time.Second,

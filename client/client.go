@@ -12,9 +12,8 @@ import (
 )
 
 type Client struct {
-	collector collector.Collector
-	router    router.Router
-	sender    sender.Sender
+	collector *collector.Collector
+	router    *router.Router
 }
 
 func (c Client) Run(ctx context.Context) {
@@ -22,18 +21,16 @@ func (c Client) Run(ctx context.Context) {
 	rToS := make(chan *instructions.InstructionBase, 50)
 
 	collector.Run(ctx, c.collector, cToR)
-	go instructions.Run(ctx, c.router, cToR, rToS)
-	go c.sender.Run(ctx, rToS)
+	instructions.Run(ctx, c.router, cToR, rToS)
+	sender.Run(ctx, rToS)
 }
 
 func New(cfg config.Config) Client {
 	c := collector.New(&cfg.DB, cfg.TeeInstructions)
 	r := router.New(&cfg.Signer, &cfg.XRP, &cfg.BTC)
-	s := sender.Sender{}
 
 	return Client{
-		collector: *c,
+		collector: c,
 		router:    r,
-		sender:    s,
 	}
 }

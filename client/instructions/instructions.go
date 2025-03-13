@@ -30,29 +30,32 @@ func init() {
 // Instruction allows instruction handling.
 type Instruction interface {
 	// Process prepares the instruction to be sent to Tees
-	Process(context.Context, router.Router) error
+	Process(context.Context, *router.Router) error
 	// Dispatch instruction to sender
 	Dispatch(chan<- *InstructionBase)
 }
 
-func Run(ctx context.Context, router router.Router, in <-chan []database.Log, out chan<- *InstructionBase) {
-	var instructionEvents []database.Log
+// Run starts a go routine in which events from in chanel are Handled and the results are passed to out channel.
+func Run(ctx context.Context, router *router.Router, in <-chan []database.Log, out chan<- *InstructionBase) {
+	go func() {
+		var instructionEvents []database.Log
 
-	for {
-		select {
-		case <-ctx.Done():
-			// TODO
-			return
-		case instructionEvents = <-in:
-			for j := range instructionEvents {
-				err := Handle(ctx, instructionEvents[j], router, out)
-				if err != nil {
-					// TODO
-					logger.Debugf("parsing :%v", err)
+		for {
+			select {
+			case <-ctx.Done():
+				// TODO
+				return
+			case instructionEvents = <-in:
+				for j := range instructionEvents {
+					err := Handle(ctx, instructionEvents[j], router, out)
+					if err != nil {
+						// TODO
+						logger.Debugf("parsing :%v", err)
+					}
 				}
 			}
 		}
-	}
+	}()
 }
 
 // parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database
@@ -92,7 +95,7 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 }
 
 // Handle parses, processes instruction log and passes it to out channel.
-func Handle(ctx context.Context, inLog database.Log, r router.Router, out chan<- *InstructionBase) error {
+func Handle(ctx context.Context, inLog database.Log, r *router.Router, out chan<- *InstructionBase) error {
 	instr, err := ParseInstruction(inLog)
 
 	if err != nil {
@@ -157,7 +160,7 @@ func (ib *InstructionBase) hashesForSigning() ([]common.Hash, error) {
 }
 
 // sign sets signatures of instructions for each Tee.
-func (ib *InstructionBase) sign(ctx context.Context, r router.Router) error {
+func (ib *InstructionBase) sign(ctx context.Context, r *router.Router) error {
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
 		return err

@@ -16,17 +16,17 @@ console = true
 #  credentials for signer
 [signer]
 url = ""
-api_key_name = ""
-api_key = ""
+key_name = ""
+key = ""
 
 # credentials for xrp augmenter
 [xrp]
 url = ""
-api_key_name = ""
-api_key = ""
+key_name = ""
+key = ""
 
 # credentials for btc augmenter
 [btc]
 url = ""
-api_key_name = ""
-api_key = ""
+key_name = ""
+key = ""

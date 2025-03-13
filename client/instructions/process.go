@@ -16,7 +16,7 @@ type Plain struct {
 }
 
 // Process just adds signatures to p.
-func (p *Plain) Process(ctx context.Context, r router.Router) error {
+func (p *Plain) Process(ctx context.Context, r *router.Router) error {
 	return p.sign(ctx, r)
 }
 
@@ -28,7 +28,7 @@ type Augment struct {
 }
 
 // Process augments p according to OPType and OPCommand and adds signatures.
-func (p *Augment) Process(ctx context.Context, r router.Router) error {
+func (p *Augment) Process(ctx context.Context, r *router.Router) error {
 	fixed, variable, err := r.Augment(ctx, p.Event.OpType, p.Event.OpCommand, p.Event.Message)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ type AugmentAndSign struct {
 }
 
 // Process augments p according to OPType and OPCommand and adds signatures.
-func (p *AugmentAndSign) Process(ctx context.Context, r router.Router) error {
+func (p *AugmentAndSign) Process(ctx context.Context, r *router.Router) error {
 	fixed, _, err := r.Augment(ctx, p.Event.OpType, p.Event.OpCommand, p.Event.Message)
 	if err != nil {
 		return err

@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
@@ -31,18 +30,16 @@ func init() {
 }
 
 type Credentials struct {
-	key utils.APIKey
-	url string
+	KeyName string `toml:"key_name"`
+	Key     string `toml:"key"`
+	URL     string `toml:"url"`
 }
 
-func Pack(cfgCreds *config.Credentials) Credentials {
-	return Credentials{
-		key: utils.NewApiKey(cfgCreds.APIKeyName, cfgCreds.APIKey),
-		url: cfgCreds.URL,
-	}
+func (c Credentials) ApiKey() utils.APIKey {
+	return utils.NewApiKey(c.KeyName, c.Key)
 }
 
-// Router implements instructions.Router interface
+// Router
 type Router struct {
 	signer Signer
 	xrp    augmenterWallet
@@ -51,11 +48,11 @@ type Router struct {
 }
 
 // New creates new Router from config
-func New(signerCred, xrpCred, btcCred *config.Credentials) Router {
-	return Router{
-		signer: Signer(Pack(signerCred)),
-		xrp:    augmenterWallet(Pack(xrpCred)),
-		btc:    augmenterWallet(Pack(btcCred)),
+func New(signerCred, xrpCred, btcCred *Credentials) *Router {
+	return &Router{
+		signer: Signer{signerCred},
+		xrp:    augmenterWallet{xrpCred},
+		btc:    augmenterWallet{btcCred},
 	}
 }
 

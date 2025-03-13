@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
-type augmenterWallet Credentials
+type augmenterWallet struct{ *Credentials }
 
 type AugRequest struct {
 	OPType    common.Hash   `json:"opType"`
@@ -35,7 +35,7 @@ func (a augmenterWallet) Augment(ctx context.Context, opType common.Hash, opComm
 		return nil, nil, err
 	}
 
-	response, err := utils.PostWithRetry[AugResponse](ctx, a.url, a.key, encodedBody, utils.RetryParams{
+	response, err := utils.PostWithRetry[AugResponse](ctx, a.URL, a.ApiKey(), encodedBody, utils.RetryParams{
 		MaxAttempts: 3,
 		Delay:       10 * time.Second,
 		Timeout:     time.Minute,

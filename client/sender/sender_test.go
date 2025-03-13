@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
-	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
 	"github.com/flare-foundation/tee-relay-client/client/router"
 	"github.com/flare-foundation/tee-relay-client/client/sender"
@@ -52,13 +51,7 @@ func TestPrepareInstruction(t *testing.T) {
 		require.Error(t, err)
 	}()
 
-	nilCred := &config.Credentials{
-		APIKeyName: "",
-		APIKey:     "",
-		URL:        "",
-	}
-
-	router := router.New(cred, nilCred, nilCred)
+	router := router.New(cred, test.NilCred, test.NilCred)
 
 	err = instr.Process(ctx, router)
 	require.NoError(t, err)

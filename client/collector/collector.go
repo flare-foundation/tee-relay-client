@@ -45,7 +45,7 @@ func New(cfg *database.Config, teeInstructions common.Address) *Collector {
 }
 
 // Run waits for db to sync starts a goroutine in which collector listens to TeeInstructionsSent events and sends them to out channel.
-func Run(ctx context.Context, c Collector, out chan<- []database.Log) {
+func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
 	syncParams := database.SyncParams{
 		Retries:            30,
 		OutOfSyncTolerance: 10 * time.Second,
