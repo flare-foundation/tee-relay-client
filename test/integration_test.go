@@ -53,9 +53,22 @@ func TestE2E(t *testing.T) {
 	instructions.Run(ctx, router, in, out)
 
 	in <- events
-	x := <-out
 
-	require.Equal(t, 1, len(x.Signatures))
+	id0 := "0x" + events[0].Topic1
+	id1 := "0x" + events[1].Topic1
+
+	for range 2 {
+		x := <-out
+
+		switch x.GeneralData.InstructionID.String() {
+		case id0:
+			require.Equal(t, 1, len(x.Signatures))
+		case id1:
+			require.Equal(t, 2, len(x.Signatures))
+		default:
+			t.Error("no matching id")
+		}
+	}
 
 	cancel()
 }
