@@ -45,12 +45,10 @@ func Run(ctx context.Context, router *router.Router, in <-chan []database.Log, o
 			select {
 			case <-ctx.Done():
 				logger.Infof("closing instructions Run: %v", ctx.Err())
-				close(out)
 				return
 			case instructionEvents, ok = <-in:
 				if !ok {
 					logger.Infof("closing instructions Run: in channel closed")
-					close(out)
 					return
 				}
 

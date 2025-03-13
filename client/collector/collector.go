@@ -87,7 +87,6 @@ func instructionsListener(
 		case <-trigger.C:
 		case <-ctx.Done():
 			logger.Info("instructionsListener exiting:", ctx.Err())
-			close(out)
 			return
 		}
 
@@ -114,7 +113,6 @@ func instructionsListener(
 			case out <- logs:
 			case <-ctx.Done():
 				logger.Info("instructionsListener exiting:", ctx.Err())
-				close(out)
 				return
 			}
 		}
