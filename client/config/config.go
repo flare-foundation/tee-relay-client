@@ -11,7 +11,8 @@ type Config struct {
 	DB              database.Config    `toml:"db"`
 	Logging         logger.Config      `toml:"logger"`
 	TeeInstructions common.Address     `toml:"tee_instructions"`
-	Signer          router.Credentials `toml:"signer"` // credentials for signer
-	XRP             router.Credentials `toml:"xrp"`    // credentials for xrp augmenter
-	BTC             router.Credentials `toml:"btc"`    // credentials for btc augmenter
+	Signer          router.Credentials `toml:"signer"`           // credentials for signer
+	XRP             router.Credentials `toml:"xrp"`              // credentials for xrp augmenter
+	BTC             router.Credentials `toml:"btc"`              // credentials for btc augmenter
+	TestPrivateKey  *common.Hash       `toml:"test_private_key"` // private key used for test signing
 }
