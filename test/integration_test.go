@@ -19,7 +19,7 @@ const TeeInstructionsAddress = "0x1bB2e744E5f7aFFC0dA0d87FA723Ae679f08ca80"
 
 type Logs []database.Log
 
-func TestE2E(t *testing.T) {
+func TestIntegration(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
