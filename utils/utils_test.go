@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -138,4 +139,75 @@ func TestPOST(t *testing.T) {
 	require.NoError(t, err)
 
 	wg.Wait()
+}
+
+const errorMsg = "still error"
+
+var errRetry error = errors.New(errorMsg)
+
+func testFunction(k int) func() (int, error) {
+	return func() (int, error) {
+		if k > 0 {
+			k--
+			return 0, errRetry
+		}
+
+		return 100, nil
+	}
+}
+
+func TestExecuteWithRetry(t *testing.T) {
+	tests := []struct {
+		f        func() (int, error)
+		params   RetryParams
+		expected ExecuteStatus[int]
+	}{
+		{
+			f: testFunction(3),
+			params: RetryParams{
+				MaxAttempts: 4,
+				Delay:       0,
+				Timeout:     0,
+			},
+			expected: ExecuteStatus[int]{
+				Success: true,
+				Err:     nil,
+				Value:   100,
+			},
+		},
+		{
+			f: testFunction(3),
+			params: RetryParams{
+				MaxAttempts: 0,
+				Delay:       0,
+				Timeout:     0,
+			},
+			expected: ExecuteStatus[int]{
+				Success: true,
+				Err:     nil,
+				Value:   100,
+			},
+		},
+		{
+			f: testFunction(3),
+			params: RetryParams{
+				MaxAttempts: 2,
+				Delay:       0,
+				Timeout:     0,
+			},
+			expected: ExecuteStatus[int]{
+				Success: false,
+				Err:     fmt.Errorf("max retries reached: %v", errRetry),
+				Value:   0,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		ctx := context.Background()
+
+		outcome := ExecuteWithRetry(ctx, test.f, test.params)
+
+		require.Equal(t, test.expected, outcome)
+	}
 }

@@ -76,8 +76,7 @@ type ExecuteStatus[T any] struct {
 type RetryParams struct {
 	MaxAttempts int           // if non positive, number of attempts is not limited.
 	Delay       time.Duration // minimal delay between each attempts
-	Timeout     time.Duration // if zero, there is no Timeout
-
+	Timeout     time.Duration // total maximal duration of the execution. If zero, there is no Timeout. For a single execution, the function should handle timeout.
 }
 
 func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), params RetryParams) ExecuteStatus[T] {
@@ -88,32 +87,39 @@ func ExecuteWithRetry[T any](ctx context.Context, f func() (T, error), params Re
 		defer cancel()
 	}
 
-	ticker := time.NewTicker(params.Delay)
+	var ticker *time.Ticker
+
+	if params.Delay > 0 {
+		ticker = time.NewTicker(params.Delay)
+	}
 	var result ExecuteStatus[T]
 
 	var err error
 	var r T
 
 	increment := 1
+	attempts := params.MaxAttempts
 	if params.MaxAttempts <= 0 {
 		increment = 0
+		attempts = 1
 	}
 
-	for j := 0; j < params.MaxAttempts; j += increment {
+	for j := 0; j < attempts; j += increment {
 		if err = ctx.Err(); err != nil {
 			result.Err = fmt.Errorf("context error mid retry: %v", err)
 			return result
 		}
 
 		r, err = f()
-
 		if err == nil {
 			result.Success = true
 			result.Value = r
 			return result
 		}
 
-		<-ticker.C
+		if params.Delay > 0 {
+			<-ticker.C
+		}
 	}
 
 	result.Err = fmt.Errorf("max retries reached: %v", err)
