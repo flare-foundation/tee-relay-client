@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -156,6 +157,18 @@ func testFunction(k int) func() (int, error) {
 	}
 }
 
+func testFunction2(d time.Duration) func() (int, error) {
+	start := time.Now()
+
+	return func() (int, error) {
+		if time.Since(start) > d {
+			return 100, nil
+		}
+
+		return 0, errRetry
+	}
+}
+
 func TestExecuteWithRetry(t *testing.T) {
 	tests := []struct {
 		f        func() (int, error)
@@ -198,6 +211,32 @@ func TestExecuteWithRetry(t *testing.T) {
 			expected: ExecuteStatus[int]{
 				Success: false,
 				Err:     fmt.Errorf("max retries reached: %v", errRetry),
+				Value:   0,
+			},
+		},
+		{
+			f: testFunction2(10 * time.Millisecond),
+			params: RetryParams{
+				MaxAttempts: 0,
+				Delay:       3 * time.Millisecond,
+				Timeout:     13 * time.Millisecond,
+			},
+			expected: ExecuteStatus[int]{
+				Success: true,
+				Err:     nil,
+				Value:   100,
+			},
+		},
+		{
+			f: testFunction2(20 * time.Millisecond),
+			params: RetryParams{
+				MaxAttempts: 0,
+				Delay:       2 * time.Millisecond,
+				Timeout:     5 * time.Millisecond,
+			},
+			expected: ExecuteStatus[int]{
+				Success: false,
+				Err:     fmt.Errorf("context error mid retry: %v", context.DeadlineExceeded),
 				Value:   0,
 			},
 		},
