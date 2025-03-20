@@ -44,4 +44,10 @@ func TestParseInstruction(t *testing.T) {
 
 	require.Equal(t, uint32(1718113274), ib.GeneralData.Timestamp)
 	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
+
+	hashes, err := ib.hashesForSigning()
+	require.NoError(t, err)
+	require.Len(t, hashes, 2)
+
+	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
 }

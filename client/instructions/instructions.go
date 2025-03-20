@@ -3,6 +3,7 @@ package instructions
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -82,6 +83,8 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 	var ib InstructionBase
 	ib.Event = event
 	ib.EventToData(uint32(inLog.Timestamp))
+
+	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
 
 	InClass, exists := OPToInstClass[ib.Event.OpCommand]
 	if !exists {
@@ -166,6 +169,8 @@ func (ib *InstructionBase) hashesForSigning() ([]common.Hash, error) {
 
 // sign sets signatures of instructions for each Tee.
 func (ib *InstructionBase) sign(ctx context.Context, r *router.Router) error {
+	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
+
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
 		return err
