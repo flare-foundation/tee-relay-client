@@ -74,9 +74,7 @@ func SendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 
 	err = client.CallContext(ctx, &res, "instructionservice_sendSignedInstruction", instr)
 
-	fmt.Printf("res: %v\n", res)
-
-	logger.Infof("sent instruction %s to %s, err: %v", instr.Data.InstructionID, url, err)
+	logger.Infof("sent instruction %s to %s, res: v, err: %v", instr.Data.InstructionID, url, res, err)
 
 	return err
 }
