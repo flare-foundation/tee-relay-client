@@ -97,6 +97,8 @@ func ParseInstruction(inLog database.Log) (Instruction, error) {
 		in = &Plain{ib}
 	case Aug:
 		in = &Augment{ib}
+	case AugNSign:
+		in = &AugmentAndSign{ib}
 	}
 
 	return in, nil
@@ -134,12 +136,15 @@ type InstructionBase struct {
 // AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
 func (ib *InstructionBase) EventToData(timestamp uint32) {
 	ib.GeneralData = instruction.Data{
-		InstructionID:   ib.Event.InstructionId,
-		Timestamp:       timestamp,
-		RewardEpochID:   ib.Event.RewardEpochId,
-		OPType:          ib.Event.OpType,
-		OPCommand:       ib.Event.OpCommand,
-		OriginalMessage: ib.Event.Message,
+		DataFixed: instruction.DataFixed{
+			InstructionID:   ib.Event.InstructionId,
+			Timestamp:       timestamp,
+			RewardEpochID:   ib.Event.RewardEpochId,
+			OPType:          ib.Event.OpType,
+			OPCommand:       ib.Event.OpCommand,
+			OriginalMessage: ib.Event.Message,
+		},
+		AdditionalVariableMessage: hexutil.Bytes{},
 	}
 }
 

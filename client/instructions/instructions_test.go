@@ -10,7 +10,7 @@ import (
 )
 
 func TestSorting(t *testing.T) {
-	require.Equal(t, len(OPToInstClass), len(plainCommands)+len(augmentCommands))
+	require.Equal(t, len(OPToInstClass), len(plainCommands)+len(augmentCommands)+len(augmentAndSignCommands))
 }
 
 func TestParseInstruction(t *testing.T) {

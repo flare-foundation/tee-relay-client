@@ -3,18 +3,17 @@ package sender
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/utils"
+
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
-const sendSignedInstructions = "/send-signed-instruction"
+// const sendSignedInstructions = "/send-signed-instruction"
 
 // Run starts a go routine that listens to instructions from in channel and sends them to Tees.
 func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
@@ -52,20 +51,33 @@ func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 }
 
 func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
-	urlEndpoint := url + sendSignedInstructions
+	// urlEndpoint := url + sendSignedInstructions
 
-	body, err := json.Marshal(instr)
+	// body, err := json.Marshal(instr)
 
+	// if err != nil {
+	// 	return err
+	// }
+
+	client, err := rpc.Dial(url)
 	if err != nil {
 		return err
 	}
 
-	// todo handle response
-	_, err = utils.PostWithRetry[any](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
-		MaxAttempts: 3,
-		Delay:       10 * time.Second,
-		Timeout:     time.Minute,
-	})
+	// // todo handle response
+	// _, err = utils.PostWithRetry[any](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
+	// 	MaxAttempts: 3,
+	// 	Delay:       10 * time.Second,
+	// 	Timeout:     time.Minute,
+	// })
+	var res any
+
+	err = client.CallContext(ctx, &res, "instructionservice_sendSignedInstruction", instr)
+
+	fmt.Printf("res: %v\n", res)
+
+	logger.Infof("sent instruction %s to %s, err: %v", instr.Data.InstructionID, url, err)
+
 	return err
 }
 

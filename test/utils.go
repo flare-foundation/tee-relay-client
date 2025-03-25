@@ -8,6 +8,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/client/router"
 )
 
+// NewTestSigner serves a testSigner on
 func NewTestSigner(cfg signing.Config, prv *ecdsa.PrivateKey) (*signing.Signer, *router.Credentials) {
 	apiKey := ""
 	if len(cfg.APIKeys) > 0 {

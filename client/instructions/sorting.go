@@ -3,6 +3,7 @@ package instructions
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/registry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
@@ -13,12 +14,14 @@ import (
 //
 //   - Pl -> Plain
 //   - Aug -> Augment
+//   - AugNSign -> AugmentAndSign
 type InstructionClass int
 
 const (
 	InvalidInstructionClass InstructionClass = iota
 	Pl
 	Aug
+	AugNSign
 )
 
 // OPToInstClass is a mapping from OPCommand to InstructionClass
@@ -45,6 +48,11 @@ var augmentCommands = []string{
 	string(payment.Reissue),
 }
 
+var augmentAndSignCommands = []string{
+	// FTDC
+	string(connector.Prove),
+}
+
 func init() {
 	OPToInstClass = make(map[common.Hash]InstructionClass)
 
@@ -62,5 +70,13 @@ func init() {
 			logger.Panicf("populating OPToClass augmentCommands: %v", err)
 		}
 		OPToInstClass[hexCommand] = Aug
+	}
+
+	for j := range augmentAndSignCommands {
+		hexCommand, err := utils.ToBytes32(augmentAndSignCommands[j])
+		if err != nil {
+			logger.Panicf("populating OPToClass augmentAndSignCommands: %v", err)
+		}
+		OPToInstClass[hexCommand] = AugNSign
 	}
 }

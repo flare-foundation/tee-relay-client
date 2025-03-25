@@ -10,7 +10,7 @@ import (
 // String s can be at most 32 characters long, otherwise an error is returned.
 func ToBytes32(s string) (common.Hash, error) {
 	if len(s) > 32 {
-		return common.Hash{}, fmt.Errorf("String %s too long. At most 32 characters allowed", s)
+		return common.Hash{}, fmt.Errorf("string %s too long. At most 32 characters allowed", s)
 	}
 	x := [32]byte{}
 	copy(x[:], s)
