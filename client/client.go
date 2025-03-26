@@ -16,6 +16,7 @@ type Client struct {
 	router    *router.Router
 }
 
+// Run starts collector, instruction processing, and sender.
 func (c Client) Run(ctx context.Context) {
 	cToR := make(chan []database.Log, 50) //todo buffer
 	rToS := make(chan *instructions.InstructionBase, 50)

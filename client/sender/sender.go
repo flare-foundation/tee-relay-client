@@ -51,6 +51,15 @@ func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 	}()
 }
 
+// todo get this from the node repo (or somewhere else)
+type TempRes struct {
+	Status    string
+	Token     string
+	Data      []byte
+	Finalized bool
+}
+
+// SendToTee sends the instruction instruction endpoint of tee at url.
 func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
 	urlEndpoint := url + "/instruction"
 
@@ -60,14 +69,16 @@ func SendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 	}
 
 	// todo handle response
-	res, err := utils.PostWithRetry[any](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
+	res, err := utils.PostWithRetry[TempRes](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
 		MaxAttempts: 3,
 		Delay:       10 * time.Second,
 		Timeout:     time.Minute,
 	})
 
-	if err != nil {
-		logger.Infof("sent instruction %s to %s, res: %v, err: %v", instr.Data.InstructionID, url, *res, err)
+	if err == nil {
+		logger.Infof("delivered instruction %s to %s, res: %v", instr.Data.InstructionID, url, *res)
+	} else {
+		logger.Errorf("error sending : %v", err)
 	}
 
 	return err
