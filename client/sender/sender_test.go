@@ -3,6 +3,7 @@ package sender_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -29,7 +30,7 @@ func TestPrepareInstruction(t *testing.T) {
 		BlockNumber:     123,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 
 	instr, err := instructions.ParseInstruction(event)
 	require.NoError(t, err)

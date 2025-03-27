@@ -3,18 +3,19 @@ package sender
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
-// const sendSignedInstructions = "/send-signed-instruction"
+const timeout = 5 * time.Second // maximal duration for the server to resolve the query
+const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server  TODO: make this more restrictive
 
 // Run starts a go routine that listens to instructions from in channel and sends them to Tees.
 func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
@@ -63,13 +64,11 @@ type TempRes struct {
 func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
 	urlEndpoint := url + "/instruction"
 
-	body, err := json.Marshal(instr)
-	if err != nil {
-		return err
-	}
-
 	// todo handle response
-	res, err := utils.PostWithRetry[TempRes](ctx, urlEndpoint, utils.NoAPIKey, body, utils.RetryParams{
+	res, err := call.PostWithRetry[instruction.Instruction, TempRes](ctx, urlEndpoint, call.NoAPIKey, instr, call.CallParams{
+		Timeout:         timeout,
+		MaxResponseSize: maxRespSize,
+	}, retry.Params{
 		MaxAttempts: 3,
 		Delay:       10 * time.Second,
 		Timeout:     time.Minute,

@@ -8,7 +8,9 @@ import (
 	"github.com/flare-foundation/tee-relay-client/client/router"
 )
 
-// NewTestSigner serves a testSigner on
+// NewTestSigner creates a signer server that can be used in simulation.
+//
+// DO NOT USE IN PRODUCTION
 func NewTestSigner(cfg signing.Config, prv *ecdsa.PrivateKey) (*signing.Signer, *router.Credentials) {
 	apiKey := ""
 	if len(cfg.APIKeys) > 0 {

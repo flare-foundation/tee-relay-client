@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
@@ -35,8 +36,11 @@ type Credentials struct {
 	URL     string `toml:"url"`
 }
 
-func (c Credentials) ApiKey() utils.APIKey {
-	return utils.NewApiKey(c.KeyName, c.Key)
+func (c Credentials) ApiKey() call.APIKey {
+	return call.APIKey{
+		Name: c.KeyName,
+		Key:  c.Key,
+	}
 }
 
 // Router

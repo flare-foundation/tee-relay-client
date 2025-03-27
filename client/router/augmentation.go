@@ -2,12 +2,12 @@ package router
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/tee-relay-client/utils"
+	"github.com/flare-foundation/go-flare-common/pkg/call"
+	"github.com/flare-foundation/go-flare-common/pkg/retry"
 )
 
 type augmenterWallet struct{ *Credentials }
@@ -30,12 +30,10 @@ func (a augmenterWallet) Augment(ctx context.Context, opType common.Hash, opComm
 		Message:   message,
 	}
 
-	encodedBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	response, err := utils.PostWithRetry[AugResponse](ctx, a.URL, a.ApiKey(), encodedBody, utils.RetryParams{
+	response, err := call.PostWithRetry[AugRequest, AugResponse](ctx, a.URL, a.ApiKey(), req, call.CallParams{
+		Timeout:         timeout,
+		MaxResponseSize: maxRespSize,
+	}, retry.Params{
 		MaxAttempts: 3,
 		Delay:       10 * time.Second,
 		Timeout:     time.Minute,
