@@ -65,7 +65,7 @@ func SendToTee(ctx context.Context, url string, instr instruction.Instruction) e
 	urlEndpoint := url + "/instruction"
 
 	// todo handle response
-	res, err := call.PostWithRetry[instruction.Instruction, TempRes](ctx, urlEndpoint, call.NoAPIKey, instr, call.CallParams{
+	res, err := call.PostWithRetry[instruction.Instruction, TempRes](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
 	}, retry.Params{

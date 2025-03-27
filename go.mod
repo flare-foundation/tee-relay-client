@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/ethereum/go-ethereum v1.15.0
-	github.com/flare-foundation/go-flare-common v1.2.1-0.20250327122758-ebc5ec5ce2d9
+	github.com/flare-foundation/go-flare-common v1.2.1-0.20250327152137-fd8bb01290c0
 	github.com/stretchr/testify v1.10.0
 	gorm.io/gorm v1.25.12
 )
@@ -35,8 +35,7 @@ require (
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
-	github.com/naoina/go-stringutil v0.1.0 // indirect
-	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect

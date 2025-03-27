@@ -30,7 +30,7 @@ func (a augmenterWallet) Augment(ctx context.Context, opType common.Hash, opComm
 		Message:   message,
 	}
 
-	response, err := call.PostWithRetry[AugRequest, AugResponse](ctx, a.URL, a.ApiKey(), req, call.CallParams{
+	response, err := call.PostWithRetry[AugRequest, AugResponse](ctx, a.URL, a.ApiKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
 	}, retry.Params{

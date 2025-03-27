@@ -7,8 +7,7 @@
 TEE relay client is a connector between contracts on Flare's C-chain and TEE clients.
 It listens to events emitted by TeeInstructions smart contract, processes them and sends them to the TEE nodes.
 
-TEE relay client should be run by any entity included in Flare's signing policy.
-A message to tee
+TEE relay client should be run by all entities included in Flare's signing policy.
 
 ## Configurations
 
@@ -52,5 +51,4 @@ key = ""
 url = ""
 key_name = ""
 key = ""
-
 ```

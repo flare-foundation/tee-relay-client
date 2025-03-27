@@ -21,7 +21,7 @@ type Signer struct{ *Credentials }
 func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signing.RequestBody{Hashes: hashes}
 
-	response, err := call.PostWithRetry[signing.RequestBody, signing.ResponseBody](ctx, s.URL, s.ApiKey(), req, call.CallParams{
+	response, err := call.PostWithRetry[signing.RequestBody, signing.ResponseBody](ctx, s.URL, s.ApiKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: int64(bytesPerSignature * len(hashes)),
 	}, retry.Params{
