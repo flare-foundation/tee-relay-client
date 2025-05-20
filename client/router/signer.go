@@ -30,7 +30,7 @@ func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 		Timeout:     time.Minute,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("post call to %v rejected %v", s.URL, err)
 	}
 
 	if len(hashes) != len(response.Signatures) {

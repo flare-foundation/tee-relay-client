@@ -65,30 +65,35 @@ func Run(ctx context.Context, router *router.Router, in <-chan []database.Log, o
 }
 
 // parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database.
-func parseTeeInstructionsSent(instruction database.Log) (*teeinstructions.TeeInstructionsTeeInstructionsSent, error) {
-	chainLog, err := events.ConvertDatabaseLogToChainLog(instruction)
+func parseTeeInstructionsSent(i database.Log) (*teeinstructions.TeeInstructionsTeeInstructionsSent, error) {
+	cl, err := events.ConvertDatabaseLogToChainLog(i)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("converting instruction db log %v: %v", i, err)
 	}
 
-	return teeFilterer.ParseTeeInstructionsSent(*chainLog)
+	is, err := teeFilterer.ParseTeeInstructionsSent(*cl)
+	if err != nil {
+		return nil, fmt.Errorf("parsing instruction %v: %v", i, err)
+	}
+
+	return is, nil
 }
 
 // ParseInstruction transforms database log to a designated implementation of Instruction interface.
-func ParseInstruction(inLog database.Log) (Instruction, error) {
-	event, err := parseTeeInstructionsSent(inLog)
+func ParseInstruction(il database.Log) (Instruction, error) {
+	event, err := parseTeeInstructionsSent(il)
 	if err != nil {
 		return nil, err
 	}
 	var ib InstructionBase
 	ib.Event = event
-	ib.EventToData(uint32(inLog.Timestamp))
+	ib.EventToData(uint32(il.Timestamp))
 
 	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
 
 	InClass, exists := OPToInstClass[ib.Event.OpCommand]
 	if !exists {
-		return nil, fmt.Errorf("unsorted opCommand: %s", string(ib.Event.OpCommand[:]))
+		return nil, fmt.Errorf("unsorted opCommand: %s for instruction %v", string(ib.Event.OpCommand[:]), il)
 	}
 	var in Instruction
 
@@ -166,7 +171,7 @@ func (ib *InstructionBase) hashesForSigning() ([]common.Hash, error) {
 		data.TeeID = ib.Event.TeeMachines[j].TeeId
 		hashes[j], err = data.HashForSigning()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("hash of %v; %v", data, err)
 		}
 	}
 	return hashes, nil
@@ -178,12 +183,12 @@ func (ib *InstructionBase) sign(ctx context.Context, r *router.Router) error {
 
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
-		return err
+		return fmt.Errorf("preparing: %v", err)
 	}
 
 	signatures, err := r.Sign(ctx, toSign)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting signatures for %v: %v", ib.GeneralData, err)
 	}
 	ib.Signatures = signatures
 

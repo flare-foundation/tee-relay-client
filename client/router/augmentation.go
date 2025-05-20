@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +40,7 @@ func (a augmenterWallet) Augment(ctx context.Context, opType common.Hash, opComm
 		Timeout:     time.Minute,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed on retries: %v", err)
 	}
 
 	return response.FixedMessage, response.VariableMessage, nil

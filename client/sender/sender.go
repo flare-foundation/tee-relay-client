@@ -17,7 +17,7 @@ import (
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
 const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server  TODO: make this more restrictive
 
-// Run starts a go routine that listens to instructions from in channel and sends them to Tees.
+// Run starts a go routine that listens to instructions from in channel and sends them to tees.
 func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 	go func() {
 		for {
@@ -41,7 +41,7 @@ func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
 						return
 					}
 
-					err = SendToTee(ctx, url, *msg)
+					err = SendToTEE(ctx, url, *msg)
 					if err != nil {
 						logger.Errorf("sending instruction %s for %s to %s: %v", msg.Data.InstructionID, msg.Data.TeeID, url, err)
 						return
@@ -60,8 +60,8 @@ type TempRes struct {
 	Finalized bool
 }
 
-// SendToTee sends the instruction instruction endpoint of tee at url.
-func SendToTee(ctx context.Context, url string, instr instruction.Instruction) error {
+// SendToTEE sends the instruction instruction endpoint of tee at url.
+func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) error {
 	urlEndpoint := url + "/instruction"
 
 	// todo handle response
