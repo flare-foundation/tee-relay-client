@@ -8,9 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/go-flare-common/pkg/signing"
+	"github.com/flare-foundation/go-flare-common/pkg/priority"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
+	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/client/router"
 	"github.com/flare-foundation/tee-relay-client/client/sender"
 	"github.com/flare-foundation/tee-relay-client/test"
 	"github.com/stretchr/testify/require"
@@ -32,13 +33,10 @@ func TestPrepareInstruction(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 
-	instr, err := instructions.ParseInstruction(event)
-	require.NoError(t, err)
-
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	cfg := signing.Config{
+	cfg := signer.Config{
 		Addr:       ":8080",
 		APIKeyName: "X-API-KEY",
 		APIKeys:    []string{"123"},
@@ -51,14 +49,21 @@ func TestPrepareInstruction(t *testing.T) {
 		require.Error(t, err)
 	}()
 
-	router := router.New(cred, test.NilCred, test.NilCred)
+	ftdcCfg := config.FTDC{
+		Queues:    map[string]priority.Params{},
+		Verifiers: []config.Verifier{},
+	}
 
-	err = instr.Process(ctx, router)
+	router := instructions.NewRouter(cred, &ftdcCfg)
+
+	out := make(chan *instructions.Base, 2)
+
+	router.Start(ctx, out)
+
+	err = instructions.Handle(ctx, event, router)
 	require.NoError(t, err)
 
-	out := make(chan *instructions.InstructionBase, 2)
-
-	instr.Dispatch(out)
+	// instr.Dispatch(out)
 
 	base := <-out
 

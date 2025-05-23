@@ -1,0 +1,43 @@
+package instructions
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/go-flare-common/pkg/call"
+	"github.com/flare-foundation/go-flare-common/pkg/retry"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
+	"github.com/flare-foundation/tee-relay-client/client/config"
+)
+
+const timeout = 5 * time.Second // maximal duration for the server to resolve the query
+const bytesPerSignature = 1000  // TODO: make this more restrictive
+// const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
+
+type Signer struct{ *config.Credentials }
+
+func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
+	req := signer.RequestBody{Hashes: hashes}
+
+	response, err := call.PostWithRetry[signer.RequestBody, signer.ResponseBody](ctx, s.URL, s.APIKey(), req, call.Params{
+		Timeout:         timeout,
+		MaxResponseSize: int64(bytesPerSignature * len(hashes)),
+	}, []int{},
+		retry.Params{
+			MaxAttempts: 3,
+			Delay:       10 * time.Second,
+			Timeout:     time.Minute,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("post call to %v rejected %v", s.URL, err)
+	}
+
+	if len(hashes) != len(response.Message.Signatures) {
+		return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Message.Signatures))
+	}
+
+	return response.Message.Signatures, nil
+}

@@ -7,19 +7,18 @@ import (
 	"github.com/flare-foundation/tee-relay-client/client/collector"
 	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/client/router"
 	"github.com/flare-foundation/tee-relay-client/client/sender"
 )
 
 type Client struct {
 	collector *collector.Collector
-	router    *router.Router
+	router    *instructions.Router
 }
 
 // Run starts collector, instruction processing, and sender.
 func (c Client) Run(ctx context.Context) {
 	cToR := make(chan []database.Log, 50) //todo buffer
-	rToS := make(chan *instructions.InstructionBase, 50)
+	rToS := make(chan *instructions.Base, 50)
 
 	collector.Run(ctx, c.collector, cToR)
 	instructions.Run(ctx, c.router, cToR, rToS)
@@ -28,7 +27,7 @@ func (c Client) Run(ctx context.Context) {
 
 func New(cfg config.Config) Client {
 	c := collector.New(&cfg.DB, cfg.TeeInstructions)
-	r := router.New(&cfg.Signer, &cfg.XRP, &cfg.BTC)
+	r := instructions.NewRouter(&cfg.Signer, &cfg.FTDC)
 
 	return Client{
 		collector: c,

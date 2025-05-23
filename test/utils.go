@@ -4,14 +4,14 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/signing"
-	"github.com/flare-foundation/tee-relay-client/client/router"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
+	"github.com/flare-foundation/tee-relay-client/client/config"
 )
 
 // NewTestSigner creates a signer server that can be used in simulation.
 //
 // DO NOT USE IN PRODUCTION
-func NewTestSigner(cfg signing.Config, prv *ecdsa.PrivateKey) (*signing.Signer, *router.Credentials) {
+func NewTestSigner(cfg signer.Config, prv *ecdsa.PrivateKey) (*signer.Signer, *config.Credentials) {
 	apiKey := ""
 	if len(cfg.APIKeys) > 0 {
 		apiKey = cfg.APIKeys[0]
@@ -19,15 +19,15 @@ func NewTestSigner(cfg signing.Config, prv *ecdsa.PrivateKey) (*signing.Signer, 
 
 	url := fmt.Sprintf("http://localhost%s/sign", cfg.Addr)
 
-	cred := router.Credentials{
+	cred := config.Credentials{
 		KeyName: cfg.APIKeyName,
 		Key:     apiKey,
 		URL:     url,
 	}
-	return signing.New(cfg, prv), &cred
+	return signer.New(cfg, prv), &cred
 }
 
-var NilCred = &router.Credentials{
+var NilCred = &config.Credentials{
 	KeyName: "",
 	Key:     "",
 	URL:     "",

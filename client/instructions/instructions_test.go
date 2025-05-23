@@ -10,7 +10,7 @@ import (
 )
 
 func TestSorting(t *testing.T) {
-	require.Equal(t, len(OPToInstClass), len(plainCommands)+len(augmentCommands)+len(augmentAndSignCommands))
+	require.Equal(t, len(OPToInstClass), len(plainCommands)+len(ftdcCommands))
 }
 
 func TestParseInstruction(t *testing.T) {
@@ -34,7 +34,7 @@ func TestParseInstruction(t *testing.T) {
 	i, err := ParseInstruction(event)
 	require.NoError(t, err)
 
-	out := make(chan *InstructionBase, 1)
+	out := make(chan *Base, 1)
 
 	i.Dispatch(out)
 	ib := <-out

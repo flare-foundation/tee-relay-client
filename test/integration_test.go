@@ -8,9 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/go-flare-common/pkg/signing"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/client/router"
 	"github.com/flare-foundation/tee-relay-client/test"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +22,7 @@ func TestIntegration(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	cfg := signing.Config{
+	cfg := signer.Config{
 		Addr:       ":8080",
 		APIKeyName: "X-API-KEY",
 		APIKeys:    []string{"123"},
@@ -38,7 +37,7 @@ func TestIntegration(t *testing.T) {
 		require.Error(t, err)
 	}()
 
-	router := router.New(cred, test.NilCred, test.NilCred)
+	router := instructions.NewRouter(cred, nil)
 
 	eventsFile, err := os.ReadFile("./events.json")
 	require.NoError(t, err)
@@ -48,7 +47,7 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	in := make(chan []database.Log)
-	out := make(chan *instructions.InstructionBase)
+	out := make(chan *instructions.Base)
 
 	instructions.Run(ctx, router, in, out)
 

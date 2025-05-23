@@ -18,7 +18,7 @@ const timeout = 5 * time.Second // maximal duration for the server to resolve th
 const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server  TODO: make this more restrictive
 
 // Run starts a go routine that listens to instructions from in channel and sends them to tees.
-func Run(ctx context.Context, in <-chan *instructions.InstructionBase) {
+func Run(ctx context.Context, in <-chan *instructions.Base) {
 	go func() {
 		for {
 			if err := ctx.Err(); err != nil {
@@ -68,23 +68,24 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 	res, err := call.PostWithRetry[instruction.Instruction, TempRes](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
-	}, retry.Params{
-		MaxAttempts: 3,
-		Delay:       10 * time.Second,
-		Timeout:     time.Minute,
-	})
+	}, []int{},
+		retry.Params{
+			MaxAttempts: 3,
+			Delay:       10 * time.Second,
+			Timeout:     time.Minute,
+		})
 
 	if err == nil {
-		logger.Infof("delivered instruction %s to %s, res: %v", instr.Data.InstructionID, url, *res)
+		logger.Infof("delivered instruction %s to %s, res: %v", instr.Data.InstructionID, url, *res.Message)
 	} else {
-		logger.Errorf("error sending : %v", err)
+		logger.Errorf("error sending: %v", err)
 	}
 
 	return err
 }
 
 // PrepareInstruction prepares instruction for j-th tee machine.
-func PrepareInstruction(ib instructions.InstructionBase, j int) (*instruction.Instruction, string, error) {
+func PrepareInstruction(ib instructions.Base, j int) (*instruction.Instruction, string, error) {
 	if j < 0 || j >= len(ib.Event.TeeMachines) {
 		return nil, "", fmt.Errorf("invalid tee index %d. Should be in [0,%d)", j, len(ib.Event.TeeMachines))
 	}
