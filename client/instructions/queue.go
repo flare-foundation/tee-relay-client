@@ -13,12 +13,16 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
+// Weight for ordering of the FTDC queues.
+//
+// An item has higher priority if it has arrived earlier.
 type Weight struct{ time.Time }
 
 func (w Weight) Self() Weight {
 	return w
 }
 
+// Less returns true if t is before w.
 func (w Weight) Less(t Weight) bool {
 	return t.Before(w.Time)
 }
@@ -27,17 +31,20 @@ type FTDCQueue struct {
 	*priority.PriorityQueue[*Base, Weight]
 }
 
+// NewQueue creates a FTDC queue.
 func NewQueue(params priority.Params, name string) FTDCQueue {
 	queue := priority.New[*Base, Weight](params, name)
 
 	return FTDCQueue{&queue}
 }
 
+// FTDCHandler links to verifiers for FTDC instructions.
 type FTDCHandler struct {
 	BaseProcessor
 	verifiers map[[64]byte]Responder
 }
 
+// Handle handles instruction base for opType FTDC opCommand PROVE.
 func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	fullRequest, err := structs.Decode[connector.IFtdcHubFtdcProve](connector.MessageArguments[connector.Prove], ib.GeneralData.OriginalMessage)
 	if err != nil {
@@ -88,7 +95,13 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	}
 }
 
-func (q *FTDCQueue) ProcessOut(ctx context.Context, h *FTDCHandler) {
+type Handler interface {
+	Handle(context.Context, *Base) error
+}
+
+// ProcessOut spawns a go routine that dequeues and handles dequeues items.
+// TODO move this to common.
+func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
 	go func() {
 		for {
 			if err := ctx.Err(); err != nil {

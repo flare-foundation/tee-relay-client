@@ -71,12 +71,14 @@ func init() {
 	}
 }
 
+// Router holds processors for instructions.
 type Router struct {
 	baseProcessor  *BaseProcessor
 	ftdcProcessors map[[64]byte]*FTDCProcessor
 	ftdcHandler    *FTDCHandler
 }
 
+// NewRouter assembles Router from configs.
 func NewRouter(sigCfg *config.Credentials, ftdcCfg *config.FTDC) *Router {
 	r := new(Router)
 
@@ -114,6 +116,7 @@ func NewRouter(sigCfg *config.Credentials, ftdcCfg *config.FTDC) *Router {
 	return r
 }
 
+// Start initiates router and sets the out channel.
 func (r *Router) Start(ctx context.Context, out chan<- *Base) {
 	r.baseProcessor.out = out
 	for _, q := range r.ftdcProcessors {
@@ -122,6 +125,7 @@ func (r *Router) Start(ctx context.Context, out chan<- *Base) {
 	}
 }
 
+// Route returns the processor for the instruction base.
 func (r *Router) Route(b *Base) (Processor, error) {
 	ic, ok := OPToInstClass[b.Event.OpCommand]
 	if !ok {
@@ -155,13 +159,15 @@ func (r *Router) Route(b *Base) (Processor, error) {
 	}
 }
 
-func attTypeAndSourceID(r []byte) ([64]byte, error) {
+// attTypeAndSourceID returns concatenated attestation type and source ID each 32 bytes
+// for and encoded attestationRequest.
+func attTypeAndSourceID(attestationRequest []byte) ([64]byte, error) {
 	res := [64]byte{}
-	if len(r) < 64 {
+	if len(attestationRequest) < 64 {
 		return res, errors.New("request is to short")
 	}
 
-	copy(res[:], r[0:64])
+	copy(res[:], attestationRequest[0:64])
 
 	return res, nil
 }

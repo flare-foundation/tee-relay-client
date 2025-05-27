@@ -39,16 +39,21 @@ type FTDCProcessor struct {
 	q *FTDCQueue
 }
 
+// Responder has method Response that gets attestation response for an attestation request.
 type Responder interface {
 	Response(context.Context, []byte) ([]byte, bool, error) // TODO: decide whether bytes are orig data or just att request
 }
 
+// Process adds instruction to the queue.
 func (f *FTDCProcessor) Process(ctx context.Context, ib *Base) error {
 	f.q.Add(ib, Weight{time.Now()})
 
 	return nil
 }
 
+// Verifier holds credentials for verifier server.
+//
+// Implements Responder interface.
 type Verifier struct {
 	*config.Credentials
 }
@@ -61,6 +66,7 @@ type VerifierResponse struct {
 	Response hexutil.Bytes
 }
 
+// Response sends request to the verifier server
 func (v *Verifier) Response(ctx context.Context, request []byte) ([]byte, bool, error) {
 	r := VerifierRequest{Request: request}
 	res, err := call.PostWithRetry[VerifierRequest, VerifierResponse](ctx, v.URL, v.APIKey(), r, call.Params{
@@ -78,7 +84,7 @@ func (v *Verifier) Response(ctx context.Context, request []byte) ([]byte, bool, 
 		return nil, false, err
 	}
 	if res.Status != http.StatusOK {
-		return nil, true, nil
+		return nil, false, nil
 	}
 
 	return res.Message.Response, true, nil

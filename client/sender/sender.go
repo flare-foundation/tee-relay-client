@@ -84,7 +84,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 	return err
 }
 
-// PrepareInstruction prepares instruction for j-th tee machine.
+// PrepareInstruction prepares instruction for j-th tee machine and returns its url.
 func PrepareInstruction(ib instructions.Base, j int) (*instruction.Instruction, string, error) {
 	if j < 0 || j >= len(ib.Event.TeeMachines) {
 		return nil, "", fmt.Errorf("invalid tee index %d. Should be in [0,%d)", j, len(ib.Event.TeeMachines))

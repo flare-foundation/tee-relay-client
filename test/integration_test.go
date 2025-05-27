@@ -1,4 +1,4 @@
-package test_test
+package test
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +29,7 @@ func TestIntegration(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	signer, cred := test.NewTestSigner(cfg, prv)
+	signer, cred := NewTestSigner(cfg, prv)
 
 	go func() {
 		err := signer.Run(ctx)

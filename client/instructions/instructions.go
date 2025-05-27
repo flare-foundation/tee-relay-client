@@ -133,11 +133,6 @@ func (ib *Base) EventToData(timestamp uint32) {
 	}
 }
 
-// Dispatch adds ib to the channel.
-func (ib *Base) Dispatch(iChan chan<- *Base) {
-	iChan <- ib
-}
-
 // HashesForSigning prepares hashes of instruction data that are to be signed.
 //
 // Place of the hash corresponds to the place of TeeMachine in event.

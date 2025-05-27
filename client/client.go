@@ -25,6 +25,7 @@ func (c Client) Run(ctx context.Context) {
 	sender.Run(ctx, rToS)
 }
 
+// New creates new Client from configs.
 func New(cfg config.Config) Client {
 	c := collector.New(&cfg.DB, cfg.TeeInstructions)
 	r := instructions.NewRouter(&cfg.Signer, &cfg.FTDC)

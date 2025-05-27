@@ -31,13 +31,8 @@ func TestParseInstruction(t *testing.T) {
 	err := json.Unmarshal([]byte(eventDBjson), &event)
 	require.NoError(t, err)
 
-	i, err := ParseInstruction(event)
+	ib, err := ParseInstruction(event)
 	require.NoError(t, err)
-
-	out := make(chan *Base, 1)
-
-	i.Dispatch(out)
-	ib := <-out
 
 	require.Len(t, ib.Signatures, 0)
 	require.NotNil(t, ib.Event)

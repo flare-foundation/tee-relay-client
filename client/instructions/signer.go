@@ -17,8 +17,10 @@ const timeout = 5 * time.Second // maximal duration for the server to resolve th
 const bytesPerSignature = 1000  // TODO: make this more restrictive
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
+// Signer holds credentials for the signer server.
 type Signer struct{ *config.Credentials }
 
+// FetchSignatures sends hashes to signer and returns the corresponding signatures.
 func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signer.RequestBody{Hashes: hashes}
 
