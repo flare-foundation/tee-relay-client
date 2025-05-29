@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/flare-foundation/tee-relay-client/client"
 	"github.com/flare-foundation/tee-relay-client/client/config"
 )
@@ -16,7 +17,7 @@ const (
 )
 
 func main() {
-	cfg, err := config.ReadConfigs(configPath)
+	cfg, err := toml.ReadToml[config.Config](configPath, true)
 	if err != nil {
 		logger.Panicf("cannot read configs: %s", err)
 	}
@@ -27,7 +28,7 @@ func main() {
 
 	logger.Set(cfg.Logging)
 
-	cl := client.New(*cfg)
+	cl := client.New(cfg)
 	cl.Run(ctx)
 
 	go func() {

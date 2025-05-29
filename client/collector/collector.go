@@ -33,12 +33,7 @@ type Collector struct {
 }
 
 // New creates a new Collector that connects to database.
-func New(cfg *database.Config, teeInstructions common.Address) *Collector {
-	db, err := database.Connect(cfg)
-	if err != nil {
-		logger.Panic("Could not connect to database:", err)
-	}
-
+func New(db *gorm.DB, teeInstructions common.Address) *Collector {
 	collector := Collector{DB: db, teeInstructions: teeInstructions}
 
 	return &collector
@@ -55,7 +50,7 @@ func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
 
 	database.WaitCIndexerToSync(ctx, c.DB, syncParams)
 
-	go instructionsListener(ctx, c.DB, c.teeInstructions, 5*time.Second, out) // todo interval length
+	go instructionsListener(ctx, c.DB, c.teeInstructions, 2*time.Second, out) // todo interval length
 }
 
 // instructionsListener repeatedly queries db for teeInstructionsSent events emitted by teeInstructions smart contracts and pushes them on to the instructions instructions channel.

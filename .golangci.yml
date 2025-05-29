@@ -3,17 +3,22 @@ run:
   go: "1.23"
   modules-download-mode: readonly
 linters:
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+  default: standard
+  enable:
+    - godot
+    - whitespace
+    - unconvert
+exclusions:
+  generated: lax
+  presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+  paths:
+    - third_party$
+    - builtin$
+    - examples$
 formatters:
   exclusions:
     generated: lax
@@ -21,3 +26,5 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+issues:
+  max-same-issues: 10

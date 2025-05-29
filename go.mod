@@ -8,6 +8,7 @@ require (
 	github.com/ethereum/go-ethereum v1.15.7
 	github.com/flare-foundation/go-flare-common v1.2.1-0.20250522120903-5780648ae75f
 	github.com/stretchr/testify v1.10.0
+	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
 )
 
@@ -35,6 +36,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

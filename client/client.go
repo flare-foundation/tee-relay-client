@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/client/collector"
 	"github.com/flare-foundation/tee-relay-client/client/config"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
@@ -26,11 +27,16 @@ func (c Client) Run(ctx context.Context) {
 }
 
 // New creates new Client from configs.
-func New(cfg config.Config) Client {
-	c := collector.New(&cfg.DB, cfg.TeeInstructions)
+func New(cfg config.Config) *Client {
+	db, err := database.Connect(&cfg.DB)
+	if err != nil {
+		logger.Panic("Could not connect to database:", err)
+	}
+
+	c := collector.New(db, cfg.TeeInstructions)
 	r := instructions.NewRouter(&cfg.Signer, &cfg.FTDC)
 
-	return Client{
+	return &Client{
 		collector: c,
 		router:    r,
 	}
