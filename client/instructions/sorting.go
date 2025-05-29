@@ -16,7 +16,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
-// Instruction Class refers to an implementation of Instruction interface
+// Instruction Class refers to an implementation of Instruction interface.
 //
 //   - Pl -> Plain
 //   - Aug -> Augment
@@ -29,7 +29,7 @@ const (
 	FTDC
 )
 
-// OPToInstClass is a mapping from OPCommand to InstructionClass
+// OPToInstClass is a mapping from OPCommand to InstructionClass.
 var OPToInstClass map[common.Hash]InstructionClass
 
 var plainCommands = []string{
@@ -41,7 +41,7 @@ var plainCommands = []string{
 	string(wallet.KeyGenerate),
 	string(wallet.KeyDelete),
 
-	//XRP,BTC
+	// XRP,BTC
 	string(payment.Pay),
 	string(payment.Reissue),
 }

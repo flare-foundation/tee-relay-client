@@ -17,7 +17,7 @@ import (
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
 var teeFilterer *teeinstructions.TeeInstructionsFilterer
 
-// init sets the fdcFilterer
+// init sets the fdcFilterer.
 func init() {
 	var err error
 

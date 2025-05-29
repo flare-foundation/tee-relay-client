@@ -52,7 +52,7 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 	}()
 }
 
-// todo get this from the node repo (or somewhere else)
+// todo get this from the node repo (or somewhere else).
 type TempRes struct {
 	Status    string
 	Token     string

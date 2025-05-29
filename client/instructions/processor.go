@@ -58,7 +58,7 @@ type Verifier struct {
 	*config.Credentials
 }
 
-// TODO sync with verifiers
+// TODO sync with verifiers.
 type VerifierRequest struct {
 	Request hexutil.Bytes
 }
@@ -66,7 +66,7 @@ type VerifierResponse struct {
 	Response hexutil.Bytes
 }
 
-// Response sends request to the verifier server
+// Response sends request to the verifier server.
 func (v *Verifier) Response(ctx context.Context, request []byte) ([]byte, bool, error) {
 	r := VerifierRequest{Request: request}
 	res, err := call.PostWithRetry[VerifierRequest, VerifierResponse](ctx, v.URL, v.APIKey(), r, call.Params{

@@ -10,7 +10,7 @@ import (
 
 // NewTestSigner creates a signer server that can be used in simulation.
 //
-// DO NOT USE IN PRODUCTION
+// DO NOT USE IN PRODUCTION.
 func NewTestSigner(cfg signer.Config, prv *ecdsa.PrivateKey) (*signer.Signer, *config.Credentials) {
 	apiKey := ""
 	if len(cfg.APIKeys) > 0 {
