@@ -80,9 +80,9 @@ func ParseInstruction(il database.Log) (*Base, error) {
 	}
 	var ib Base
 	ib.Event = event
-	ib.EventToData(uint32(il.Timestamp))
+	ib.EventToData(il.Timestamp)
 
-	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
+	logger.Debugf("received instruction: %s, with ts %d at %d", common.Hash(ib.GeneralData.InstructionId), ib.GeneralData.Timestamp, time.Now().Unix())
 	return &ib, nil
 }
 
@@ -94,9 +94,8 @@ func Handle(ctx context.Context, inLog database.Log, r *Router) error {
 	}
 
 	processor, err := r.Route(instr)
-
 	if err != nil {
-		return fmt.Errorf("no processor for %v: %v", instr.Event, err)
+		return fmt.Errorf("no processor for %v: %v", instr.Event.InstructionId, err)
 	}
 
 	go func() {
@@ -119,14 +118,14 @@ type Base struct {
 //
 // TeeID has to be set later when preparing the instruction for specific Tee.
 // AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
-func (ib *Base) EventToData(timestamp uint32) {
+func (ib *Base) EventToData(timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		DataFixed: instruction.DataFixed{
-			InstructionID:   ib.Event.InstructionId,
+			InstructionId:   ib.Event.InstructionId,
 			Timestamp:       timestamp,
-			RewardEpochID:   ib.Event.RewardEpochId,
-			OPType:          ib.Event.OpType,
-			OPCommand:       ib.Event.OpCommand,
+			RewardEpochId:   ib.Event.RewardEpochId,
+			OpType:          ib.Event.OpType,
+			OpCommand:       ib.Event.OpCommand,
 			OriginalMessage: ib.Event.Message,
 		},
 		AdditionalVariableMessage: hexutil.Bytes{},
@@ -143,7 +142,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	var err error
 
 	for j := range ib.Event.TeeMachines {
-		data.TeeID = ib.Event.TeeMachines[j].TeeId
+		data.TeeId = ib.Event.TeeMachines[j].TeeId
 		hashes[j], err = data.HashForSigning()
 		if err != nil {
 			return nil, fmt.Errorf("hash of %v; %v", data, err)
@@ -154,7 +153,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 
 // sign sets signatures of instructions for each Tee.
 func (ib *Base) Sign(ctx context.Context, s *Signer) error {
-	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
+	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionId)
 
 	toSign, err := ib.hashesForSigning()
 	if err != nil {

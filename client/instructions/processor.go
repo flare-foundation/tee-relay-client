@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/tee-relay-client/client/config"
 )
 
@@ -41,7 +42,7 @@ type FTDCProcessor struct {
 
 // Responder has method Response that gets attestation response for an attestation request.
 type Responder interface {
-	Response(context.Context, []byte) ([]byte, bool, error) // TODO: decide whether bytes are orig data or just att request
+	Response(context.Context, connector.IFtdcHubFtdcAttestationRequest) ([]byte, bool, error) // TODO: decide whether bytes are orig data or just att request
 }
 
 // Process adds instruction to the queue.
@@ -58,18 +59,13 @@ type Verifier struct {
 	*config.Credentials
 }
 
-// TODO sync with verifiers.
-type VerifierRequest struct {
-	Request hexutil.Bytes
-}
 type VerifierResponse struct {
 	Response hexutil.Bytes
 }
 
 // Response sends request to the verifier server.
-func (v *Verifier) Response(ctx context.Context, request []byte) ([]byte, bool, error) {
-	r := VerifierRequest{Request: request}
-	res, err := call.PostWithRetry[VerifierRequest, VerifierResponse](ctx, v.URL, v.APIKey(), r, call.Params{
+func (v *Verifier) Response(ctx context.Context, request connector.IFtdcHubFtdcAttestationRequest) ([]byte, bool, error) {
+	res, err := call.PostWithRetry[connector.IFtdcHubFtdcAttestationRequest, VerifierResponse](ctx, v.URL, v.APIKey(), request, call.Params{
 		Timeout:         0,
 		MaxResponseSize: 0,
 	},

@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"testing"
@@ -52,13 +53,13 @@ func TestIntegration(t *testing.T) {
 
 	in <- events
 
-	id0 := "0x" + events[0].Topic1
-	id1 := "0x" + events[1].Topic1
+	id0 := events[0].Topic1
+	id1 := events[1].Topic1
 
 	for range 2 {
 		x := <-out
 
-		switch x.GeneralData.InstructionID.String() {
+		switch hex.EncodeToString(x.GeneralData.InstructionId[:]) {
 		case id0:
 			require.Equal(t, 1, len(x.Signatures))
 		case id1:

@@ -2,18 +2,14 @@ package instructions
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/registry"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-relay-client/client/config"
-	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
 // Instruction Class refers to an implementation of Instruction interface.
@@ -32,41 +28,38 @@ const (
 // OPToInstClass is a mapping from OPCommand to InstructionClass.
 var OPToInstClass map[common.Hash]InstructionClass
 
-var plainCommands = []string{
+var plainCommands = []constants.OPCommand{
 	// REG
-	string(registry.ToPauseForUpgrade),
-	string(registry.ReplicateFrom),
+
+	constants.TEEAttestation,
 
 	// WALLET
-	string(wallet.KeyGenerate),
-	string(wallet.KeyDelete),
+
+	constants.KeyDataProviderRestore,
+	constants.KeyDataProviderRestoreTest,
+	constants.KeyGenerate,
+	constants.KeyDelete,
 
 	// XRP,BTC
-	string(payment.Pay),
-	string(payment.Reissue),
+	constants.Pay,
+	constants.Reissue,
 }
 
-var ftdcCommands = []string{
+var ftdcCommands = []constants.OPCommand{
 	// FTDC
-	string(connector.Prove),
+	constants.Prove,
 }
 
 func init() {
 	OPToInstClass = make(map[common.Hash]InstructionClass)
 
 	for j := range plainCommands {
-		hexCommand, err := utils.ToBytes32(plainCommands[j])
-		if err != nil {
-			logger.Panicf("populating OPToClass plainCommands: %v", err)
-		}
+		hexCommand := plainCommands[j].Hash()
 		OPToInstClass[hexCommand] = Pl
 	}
 
 	for j := range ftdcCommands {
-		hexCommand, err := utils.ToBytes32(ftdcCommands[j])
-		if err != nil {
-			logger.Panicf("populating OPToClass ftdcCommands: %v", err)
-		}
+		hexCommand := ftdcCommands[j].Hash()
 		OPToInstClass[hexCommand] = FTDC
 	}
 }
@@ -129,19 +122,19 @@ func (r *Router) Start(ctx context.Context, out chan<- *Base) {
 func (r *Router) Route(b *Base) (Processor, error) {
 	ic, ok := OPToInstClass[b.Event.OpCommand]
 	if !ok {
-		return nil, fmt.Errorf("unsorted opCommand %v", b.Event.OpCommand)
+		return nil, fmt.Errorf("unsorted opCommand %v", string(b.Event.OpCommand[:]))
 	}
 
 	switch ic {
 	case Pl:
 		return r.baseProcessor, nil
 	case FTDC: // currently only opCommand
-		fullRequest, err := structs.Decode[connector.IFtdcHubFtdcProve](connector.MessageArguments[connector.Prove], b.GeneralData.OriginalMessage)
+		fullRequest, err := structs.Decode[connector.IFtdcHubFtdcAttestationRequest](connector.MessageArguments[constants.Prove], b.GeneralData.OriginalMessage)
 		if err != nil {
 			return nil, fmt.Errorf("decoding ftdc request: %v", err)
 		}
 
-		ats, err := attTypeAndSourceID(fullRequest.AttestationRequest)
+		ats, err := attTypeAndSourceID(&fullRequest.Header)
 		if err != nil {
 			return nil, fmt.Errorf("reading att type and source: %v", err)
 		}
@@ -161,13 +154,11 @@ func (r *Router) Route(b *Base) (Processor, error) {
 
 // attTypeAndSourceID returns concatenated attestation type and source ID each 32 bytes
 // for and encoded attestationRequest.
-func attTypeAndSourceID(attestationRequest []byte) ([64]byte, error) {
+func attTypeAndSourceID(header *connector.IFtdcHubFtdcRequestHeader) ([64]byte, error) {
 	res := [64]byte{}
-	if len(attestationRequest) < 64 {
-		return res, errors.New("request is to short")
-	}
 
-	copy(res[:], attestationRequest[0:64])
+	copy(res[:32], header.AttestationType[:])
+	copy(res[32:], header.SourceId[:])
 
 	return res, nil
 }

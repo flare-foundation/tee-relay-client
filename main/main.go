@@ -17,7 +17,7 @@ const (
 )
 
 func main() {
-	cfg, err := toml.ReadToml[config.Config](configPath, true)
+	cfg, err := toml.Read[config.Config](configPath, true)
 	if err != nil {
 		logger.Panicf("cannot read configs: %s", err)
 	}

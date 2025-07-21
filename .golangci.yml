@@ -1,30 +1,45 @@
 version: "2"
 run:
-  go: "1.23"
+  go: "1.24"
   modules-download-mode: readonly
 linters:
   default: standard
   enable:
-    - godot
-    - whitespace
+    - asciicheck
+    - bidichk
+    - containedctx
+    - copyloopvar
+    - decorder
+    - errchkjson
+    - errname
+    - exhaustive
+    - exptostd
+    - forcetypeassert
+    - misspell
+    - nolintlint
     - unconvert
+    - whitespace
+
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    nolintlint:
+      require-specific: true
 exclusions:
   generated: lax
-  presets:
-    - comments
-    - common-false-positives
-    - legacy
-    - std-error-handling
   paths:
     - third_party$
     - builtin$
     - examples$
 formatters:
+  enable:
+    - gofmt
   exclusions:
     generated: lax
     paths:
       - third_party$
       - builtin$
       - examples$
+
 issues:
-  max-same-issues: 10
+  max-same-issues: 3

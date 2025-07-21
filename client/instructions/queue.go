@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
@@ -46,12 +48,12 @@ type FTDCHandler struct {
 
 // Handle handles instruction base for opType FTDC opCommand PROVE.
 func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
-	fullRequest, err := structs.Decode[connector.IFtdcHubFtdcProve](connector.MessageArguments[connector.Prove], ib.GeneralData.OriginalMessage)
+	fullRequest, err := structs.Decode[connector.IFtdcHubFtdcAttestationRequest](connector.MessageArguments[constants.Prove], ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding request: %v", err) // should never happen
 	}
 
-	ats, err := attTypeAndSourceID(fullRequest.AttestationRequest)
+	ats, err := attTypeAndSourceID(&fullRequest.Header)
 	if err != nil {
 		return fmt.Errorf("reading reading att type and source ID: %v", err) // should never happen
 	}
@@ -61,7 +63,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 		return fmt.Errorf("no verifier for %v", ats)
 	}
 
-	attResponse, retry, err := v.Response(ctx, fullRequest.AttestationRequest)
+	attResponse, retry, err := v.Response(ctx, fullRequest)
 	if err != nil {
 		switch retry {
 		case true:
@@ -73,7 +75,10 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned := crypto.Keccak256Hash(attResponse)
+	hashToBeSigned, _, err := hashFTDCMessage(fullRequest, attResponse, ib.Event.Raw.BlockTimestamp)
+	if err != nil {
+		return fmt.Errorf("hashing ftdc message: %w", err)
+	}
 
 	signature, err := h.signer.FetchSignatures(ctx, []common.Hash{hashToBeSigned})
 	if err != nil {
@@ -112,4 +117,33 @@ func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
 			q.Dequeue(ctx, h.Handle, nil)
 		}
 	}()
+}
+
+// hashFTDCMessage is here temporarily.
+func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody []byte, timestamp uint64) (common.Hash, hexutil.Bytes, error) {
+	header := connector.IFtdcHubFtdcResponseHeader{
+		AttestationType:    req.Header.AttestationType,
+		SourceId:           req.Header.SourceId,
+		ThresholdBIPS:      req.Header.ThresholdBIPS,
+		Cosigners:          req.Header.Cosigners,
+		CosignersThreshold: req.Header.CosignersThreshold,
+		Timestamp:          timestamp,
+	}
+
+	encHeader, err := EncodeFTDCResponse(header)
+	if err != nil {
+		return common.Hash{}, nil, err
+	}
+
+	headerHash := crypto.Keccak256Hash(encHeader)
+	reqBodyHash := crypto.Keccak256Hash(req.RequestBody)
+	resBodyHash := crypto.Keccak256Hash(responseBody)
+
+	msgHash := crypto.Keccak256Hash(headerHash[:], reqBodyHash[:], resBodyHash[:])
+
+	return msgHash, encHeader, nil
+}
+
+func EncodeFTDCResponse(header connector.IFtdcHubFtdcResponseHeader) (hexutil.Bytes, error) {
+	return structs.Encode(connector.ResponseHeaderArg, &header)
 }
