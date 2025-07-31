@@ -3,14 +3,17 @@ package sender
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	"github.com/flare-foundation/tee-relay-client/client/instructions"
 )
 
@@ -53,11 +56,9 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 }
 
 // todo get this from the node repo (or somewhere else).
-type TempRes struct {
-	Status    string
-	Token     string
-	Data      []byte
-	Finalized bool
+type SignedReceipt struct {
+	Receipt   tee.TeeStructsVoteReceipt `json:"receipt"`
+	Signature hexutil.Bytes             `json:"signature"`
 }
 
 // SendToTEE sends the instruction instruction endpoint of tee at url.
@@ -65,7 +66,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 	urlEndpoint := url + "/instruction"
 
 	// todo handle response
-	res, err := call.PostWithRetry[instruction.Instruction, TempRes](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
+	res, err := call.PostWithRetry[instruction.Instruction, SignedReceipt](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
 	}, []int{},
@@ -76,7 +77,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 		})
 
 	if err == nil {
-		logger.Infof("delivered instruction %s to %s, res: %v", instr.Data.InstructionId, url, *res.Message)
+		logger.Infof("delivered instruction %s to %s, res: %v", hex.EncodeToString(instr.Data.InstructionId[:]), url, res.Message)
 	} else {
 		logger.Errorf("error sending: %v", err)
 	}
