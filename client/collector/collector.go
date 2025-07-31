@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/gorm"
@@ -14,12 +14,12 @@ import (
 var TeeInstructionsSentSel common.Hash // set in init
 
 func init() {
-	teeInstructionsABI, err := teeinstructions.TeeInstructionsMetaData.GetAbi()
+	teeExtensionRegistryABI, err := teeextensionregistry.TeeExtensionRegistryMetaData.GetAbi()
 	if err != nil {
 		logger.Panicf("getting teeInstructions abi: %v", err)
 	}
 
-	event, exits := teeInstructionsABI.Events["TeeInstructionsSent"]
+	event, exits := teeExtensionRegistryABI.Events["TeeInstructionsSent"]
 	if !exits {
 		logger.Panicf("invalid event TeeInstructionsSent")
 	}

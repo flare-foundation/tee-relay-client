@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -15,13 +15,13 @@ import (
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
-var teeFilterer *teeinstructions.TeeInstructionsFilterer
+var teeFilterer *teeextensionregistry.TeeExtensionRegistryFilterer
 
 // init sets the fdcFilterer.
 func init() {
 	var err error
 
-	teeFilterer, err = teeinstructions.NewTeeInstructionsFilterer(common.Address{}, nil)
+	teeFilterer, err = teeextensionregistry.NewTeeExtensionRegistryFilterer(common.Address{}, nil)
 	if err != nil {
 		logger.Panic("cannot get tee instructions filterer:", err)
 	}
@@ -58,7 +58,7 @@ func Run(ctx context.Context, router *Router, in <-chan []database.Log, out chan
 }
 
 // parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database.
-func parseTeeInstructionsSent(i database.Log) (*teeinstructions.TeeInstructionsTeeInstructionsSent, error) {
+func parseTeeInstructionsSent(i database.Log) (*teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent, error) {
 	cl, err := events.ConvertDatabaseLogToChainLog(i)
 	if err != nil {
 		return nil, fmt.Errorf("converting instruction db log %v: %v", i, err)
@@ -109,7 +109,7 @@ func Handle(ctx context.Context, inLog database.Log, r *Router) error {
 }
 
 type Base struct {
-	Event       *teeinstructions.TeeInstructionsTeeInstructionsSent
+	Event       *teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
 	GeneralData instruction.Data // Data without TeeID
 	Signatures  []hexutil.Bytes
 }
