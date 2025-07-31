@@ -16,7 +16,7 @@ var TeeInstructionsSentSel common.Hash // set in init
 func init() {
 	teeExtensionRegistryABI, err := teeextensionregistry.TeeExtensionRegistryMetaData.GetAbi()
 	if err != nil {
-		logger.Panicf("getting teeInstructions abi: %v", err)
+		logger.Panicf("getting teeExtensionRegistryABI abi: %v", err)
 	}
 
 	event, exits := teeExtensionRegistryABI.Events["TeeInstructionsSent"]
@@ -28,13 +28,13 @@ func init() {
 }
 
 type Collector struct {
-	DB              *gorm.DB // c-chain indexer db
-	teeInstructions common.Address
+	DB                   *gorm.DB // c-chain indexer db
+	teeExtensionRegistry common.Address
 }
 
 // New creates a new Collector that connects to database.
-func New(db *gorm.DB, teeInstructions common.Address) *Collector {
-	collector := Collector{DB: db, teeInstructions: teeInstructions}
+func New(db *gorm.DB, teeExtensionRegistry common.Address) *Collector {
+	collector := Collector{DB: db, teeExtensionRegistry: teeExtensionRegistry}
 
 	return &collector
 }
@@ -43,17 +43,17 @@ func New(db *gorm.DB, teeInstructions common.Address) *Collector {
 func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
 	syncParams := database.SyncParams{
 		Retries:            30,
-		OutOfSyncTolerance: 10 * time.Second,
+		OutOfSyncTolerance: 30 * time.Second,
 		MaxSleepTime:       10 * time.Minute,
 		MinSleepTime:       5 * time.Second,
 	}
 
 	database.WaitCIndexerToSync(ctx, c.DB, syncParams)
 
-	go instructionsListener(ctx, c.DB, c.teeInstructions, 2*time.Second, out) // todo interval length
+	go instructionsListener(ctx, c.DB, c.teeExtensionRegistry, 2*time.Second, out) // todo interval length
 }
 
-// instructionsListener repeatedly queries db for teeInstructionsSent events emitted by TeeExtensionRegistry smart contracts and pushes them on to the instructions instructions channel.
+// instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by TeeExtensionRegistry smart contracts and pushes them on to the instructions instructions channel.
 func instructionsListener(
 	ctx context.Context,
 	db *gorm.DB,
