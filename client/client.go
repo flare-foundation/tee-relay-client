@@ -33,7 +33,7 @@ func New(cfg config.Config) *Client {
 		logger.Panic("Could not connect to database:", err)
 	}
 
-	c := collector.New(db, cfg.TeeInstructions)
+	c := collector.New(db, cfg.TeeExtensionRegistry)
 	r := instructions.NewRouter(&cfg.Signer, &cfg.FTDC)
 
 	return &Client{

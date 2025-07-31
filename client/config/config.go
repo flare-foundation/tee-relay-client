@@ -12,11 +12,11 @@ import (
 )
 
 type Config struct {
-	DB              database.Config `toml:"db"`
-	Logging         logger.Config   `toml:"logger"`
-	TeeInstructions common.Address  `toml:"tee_instructions"`
-	Signer          Credentials     `toml:"signer"` // credentials for signer
-	FTDC            FTDC            `toml:"ftdc"`
+	DB                   database.Config `toml:"db"`
+	Logging              logger.Config   `toml:"logger"`
+	TeeExtensionRegistry common.Address  `toml:"tee_extension_registry"`
+	Signer               Credentials     `toml:"signer"` // credentials for signer
+	FTDC                 FTDC            `toml:"ftdc"`
 }
 
 type Credentials struct {

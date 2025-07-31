@@ -53,11 +53,11 @@ func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
 	go instructionsListener(ctx, c.DB, c.teeInstructions, 2*time.Second, out) // todo interval length
 }
 
-// instructionsListener repeatedly queries db for teeInstructionsSent events emitted by teeInstructions smart contracts and pushes them on to the instructions instructions channel.
+// instructionsListener repeatedly queries db for teeInstructionsSent events emitted by TeeExtensionRegistry smart contracts and pushes them on to the instructions instructions channel.
 func instructionsListener(
 	ctx context.Context,
 	db *gorm.DB,
-	teeInstructions common.Address,
+	teeExtensionRegistry common.Address,
 	listenerInterval time.Duration,
 	out chan<- []database.Log,
 ) {
@@ -71,7 +71,7 @@ func instructionsListener(
 	lastQueriedIndex := state.Index - 100 //TODO from where we start
 
 	params := database.LogsParams{
-		Address: teeInstructions,
+		Address: teeExtensionRegistry,
 		Topic0:  TeeInstructionsSentSel,
 		From:    int64(lastQueriedIndex),
 		To:      int64(state.Index),
