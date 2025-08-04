@@ -34,7 +34,7 @@ func (c Credentials) APIKey() call.APIKey {
 
 type FTDC struct {
 	Queues    map[string]priority.Params `toml:"queues"`
-	Verifiers []Verifier                 `toml:"verifiers"`
+	Verifiers map[string]Verifier        `toml:"verifiers"`
 }
 
 type Verifier struct {

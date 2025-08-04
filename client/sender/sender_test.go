@@ -51,7 +51,7 @@ func TestPrepareInstruction(t *testing.T) {
 
 	ftdcCfg := config.FTDC{
 		Queues:    map[string]priority.Params{},
-		Verifiers: []config.Verifier{},
+		Verifiers: map[string]config.Verifier{},
 	}
 
 	router := instructions.NewRouter(cred, &ftdcCfg)
