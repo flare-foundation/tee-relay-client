@@ -66,8 +66,8 @@ type VerifierResponse struct {
 // Response sends request to the verifier server.
 func (v *Verifier) Response(ctx context.Context, request connector.IFtdcHubFtdcAttestationRequest) ([]byte, bool, error) {
 	res, err := call.PostWithRetry[connector.IFtdcHubFtdcAttestationRequest, VerifierResponse](ctx, v.URL, v.APIKey(), request, call.Params{
-		Timeout:         0,
-		MaxResponseSize: 0,
+		Timeout:         10 * time.Second,
+		MaxResponseSize: 1000000000, // todo: set a reasonable value
 	},
 		[]int{},
 		retry.Params{

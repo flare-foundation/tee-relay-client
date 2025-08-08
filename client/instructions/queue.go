@@ -42,7 +42,7 @@ func NewQueue(params priority.Params, name string) FTDCQueue {
 
 // FTDCHandler links to verifiers for FTDC instructions.
 type FTDCHandler struct {
-	BaseProcessor
+	*BaseProcessor
 	verifiers map[[64]byte]Responder
 }
 
@@ -75,7 +75,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, _, err := hashFTDCMessage(fullRequest, attResponse, ib.Event.Raw.BlockTimestamp)
+	hashToBeSigned, _, err := hashFTDCMessage(fullRequest, attResponse, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing ftdc message: %w", err)
 	}
@@ -138,7 +138,7 @@ func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody 
 	headerHash := crypto.Keccak256Hash(encHeader)
 	reqBodyHash := crypto.Keccak256Hash(req.RequestBody)
 	resBodyHash := crypto.Keccak256Hash(responseBody)
-
+	
 	msgHash := crypto.Keccak256Hash(headerHash[:], reqBodyHash[:], resBodyHash[:])
 
 	return msgHash, encHeader, nil

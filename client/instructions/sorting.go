@@ -89,7 +89,7 @@ func NewRouter(sigCfg *config.Credentials, ftdcCfg *config.FTDC) *Router {
 			queues[name] = &FTDCProcessor{&queue}
 		}
 
-		r.ftdcHandler = &FTDCHandler{BaseProcessor: *r.baseProcessor, verifiers: make(map[[64]byte]Responder)}
+		r.ftdcHandler = &FTDCHandler{BaseProcessor: r.baseProcessor, verifiers: make(map[[64]byte]Responder)}
 
 		for _, v := range ftdcCfg.Verifiers {
 			identifier, err := v.AttTypeAndSourceID()
