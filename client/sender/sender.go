@@ -3,7 +3,6 @@ package sender
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -46,7 +45,7 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 
 					err = SendToTEE(ctx, url, *msg)
 					if err != nil {
-						logger.Errorf("sending instruction %s for %s to %s: %v", msg.Data.InstructionId, msg.Data.TeeId, url, err)
+						logger.Errorf("sending instruction %s for %s to %s: %v", msg.Data.InstructionID, msg.Data.TeeID, url, err)
 						return
 					}
 				}()
@@ -77,7 +76,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 		})
 
 	if err == nil {
-		logger.Infof("delivered instruction %s to %s, res: %v", hex.EncodeToString(instr.Data.InstructionId[:]), url, res.Message)
+		logger.Infof("delivered instruction %s to %s, res: %v", instr.Data.InstructionID.String(), url, res.Message)
 	} else {
 		logger.Errorf("error sending: %v", err)
 	}
@@ -92,7 +91,7 @@ func PrepareInstruction(ib instructions.Base, j int) (*instruction.Instruction, 
 	}
 
 	data := ib.GeneralData
-	data.TeeId = ib.Event.TeeMachines[j].TeeId
+	data.TeeID = ib.Event.TeeMachines[j].TeeId
 
 	url := ib.Event.TeeMachines[j].Url
 

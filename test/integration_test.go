@@ -59,7 +59,7 @@ func TestIntegration(t *testing.T) {
 	for range 2 {
 		x := <-out
 
-		switch hex.EncodeToString(x.GeneralData.InstructionId[:]) {
+		switch hex.EncodeToString(x.GeneralData.InstructionID[:]) {
 		case id0:
 			require.Equal(t, 1, len(x.Signatures))
 		case id1:

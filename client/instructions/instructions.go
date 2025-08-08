@@ -82,7 +82,7 @@ func ParseInstruction(il database.Log) (*Base, error) {
 	ib.Event = event
 	ib.EventToData(il.Timestamp)
 
-	logger.Debugf("received instruction: %s, with ts %d at %d", common.Hash(ib.GeneralData.InstructionId), ib.GeneralData.Timestamp, time.Now().Unix())
+	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
 	return &ib, nil
 }
 
@@ -121,11 +121,11 @@ type Base struct {
 func (ib *Base) EventToData(timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		DataFixed: instruction.DataFixed{
-			InstructionId:   ib.Event.InstructionId,
+			InstructionID:   ib.Event.InstructionId,
 			Timestamp:       timestamp,
-			RewardEpochId:   ib.Event.RewardEpochId,
-			OpType:          ib.Event.OpType,
-			OpCommand:       ib.Event.OpCommand,
+			RewardEpochID:   ib.Event.RewardEpochId,
+			OPType:          ib.Event.OpType,
+			OPCommand:       ib.Event.OpCommand,
 			OriginalMessage: ib.Event.Message,
 		},
 		AdditionalVariableMessage: hexutil.Bytes{},
@@ -142,7 +142,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	var err error
 
 	for j := range ib.Event.TeeMachines {
-		data.TeeId = ib.Event.TeeMachines[j].TeeId
+		data.TeeID = ib.Event.TeeMachines[j].TeeId
 		hashes[j], err = data.HashForSigning()
 		if err != nil {
 			return nil, fmt.Errorf("hash of %v; %v", data, err)
@@ -153,7 +153,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 
 // sign sets signatures of instructions for each Tee.
 func (ib *Base) Sign(ctx context.Context, s *Signer) error {
-	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionId)
+	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
 
 	toSign, err := ib.hashesForSigning()
 	if err != nil {

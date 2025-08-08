@@ -28,6 +28,20 @@ max_attempts = 3
 time_off = "2s"
 
 
+[ftdc.queues.payment]
+max_dequeues_per_second = 100 # zero for unlimited
+max_workers = 50              # zero for unlimited
+max_attempts = 3
+time_off = "2s"
+
+
+[ftdc.queues.account]
+max_dequeues_per_second = 100 # zero for unlimited
+max_workers = 50              # zero for unlimited
+max_attempts = 3
+time_off = "2s"
+
+
 [ftdc.verifiers.availability]
 type = "TeeAvailabilityCheck"
 source = "TEE"
@@ -36,3 +50,22 @@ server.url = ""
 server.key_name = "X-API-KEY"
 server.key = ""
 
+
+[ftdc.verifiers.payment]
+type = "PMWPaymentStatus"
+source = "XRP"
+queue = "payment"
+server.url = ""
+server.key_name = "X-API-KEY"
+server.key = ""
+
+
+
+
+[ftdc.verifiers.account]
+type = "PMWMultisigAccountConfigured"
+source = "XRP"
+queue = "account"
+server.url = ""
+server.key_name = "X-API-KEY"
+server.key = ""

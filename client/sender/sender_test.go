@@ -73,14 +73,14 @@ func TestPrepareInstruction(t *testing.T) {
 	teeID1 := common.HexToAddress("5B38Da6a701c568545dCfcB03FcB875f56beddC4")
 	expectedURL := "https://testnets.thegraph.com/subgraphs/id2/"
 
-	require.Equal(t, teeID1, in.Data.TeeId)
+	require.Equal(t, teeID1, in.Data.TeeID)
 	require.Equal(t, expectedURL, url)
 
 	_, _, err = sender.PrepareInstruction(*base, 2)
 	require.Error(t, err)
 
 	// chack that base is unchanged
-	require.Equal(t, base.GeneralData.TeeId, common.Address{})
+	require.Equal(t, base.GeneralData.TeeID, common.Address{})
 
 	err = signer.Shutdown(ctx)
 	require.NoError(t, err)

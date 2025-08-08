@@ -38,11 +38,11 @@ func TestParseInstruction(t *testing.T) {
 	require.NotNil(t, ib.Event)
 
 	require.Equal(t, uint64(1718113274), ib.GeneralData.Timestamp)
-	require.Equal(t, common.Address{}, ib.GeneralData.TeeId)
+	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
 
 	hashes, err := ib.hashesForSigning()
 	require.NoError(t, err)
 	require.Len(t, hashes, 2)
 
-	require.Equal(t, common.Address{}, ib.GeneralData.TeeId)
+	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
 }
