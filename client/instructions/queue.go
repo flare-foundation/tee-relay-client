@@ -138,7 +138,7 @@ func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody 
 	headerHash := crypto.Keccak256Hash(encHeader)
 	reqBodyHash := crypto.Keccak256Hash(req.RequestBody)
 	resBodyHash := crypto.Keccak256Hash(responseBody)
-	
+
 	msgHash := crypto.Keccak256Hash(headerHash[:], reqBodyHash[:], resBodyHash[:])
 
 	return msgHash, encHeader, nil
