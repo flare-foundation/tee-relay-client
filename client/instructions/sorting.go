@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/tee-relay-client/client/config"
@@ -28,26 +28,26 @@ const (
 // OPToInstClass is a mapping from OPCommand to InstructionClass.
 var OPToInstClass map[common.Hash]InstructionClass
 
-var plainCommands = []constants.OPCommand{
+var plainCommands = []op.Command{
 	// REG
 
-	constants.TEEAttestation,
+	op.TEEAttestation,
 
 	// WALLET
 
-	constants.KeyDataProviderRestore,
-	constants.KeyDataProviderRestoreTest,
-	constants.KeyGenerate,
-	constants.KeyDelete,
+	op.KeyDataProviderRestore,
+	op.KeyDataProviderRestoreTest,
+	op.KeyGenerate,
+	op.KeyDelete,
 
 	// XRP,BTC
-	constants.Pay,
-	constants.Reissue,
+	op.Pay,
+	op.Reissue,
 }
 
-var ftdcCommands = []constants.OPCommand{
+var ftdcCommands = []op.Command{
 	// FTDC
-	constants.Prove,
+	op.Prove,
 }
 
 func init() {
@@ -129,7 +129,7 @@ func (r *Router) Route(b *Base) (Processor, error) {
 	case Pl:
 		return r.baseProcessor, nil
 	case FTDC: // currently only opCommand
-		fullRequest, err := structs.Decode[connector.IFtdcHubFtdcAttestationRequest](connector.MessageArguments[constants.Prove], b.GeneralData.OriginalMessage)
+		fullRequest, err := structs.Decode[connector.IFtdcHubFtdcAttestationRequest](connector.MessageArguments[op.Prove], b.GeneralData.OriginalMessage)
 		if err != nil {
 			return nil, fmt.Errorf("decoding ftdc request: %v", err)
 		}

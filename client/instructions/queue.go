@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
@@ -48,7 +48,7 @@ type FTDCHandler struct {
 
 // Handle handles instruction base for opType FTDC opCommand PROVE.
 func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
-	fullRequest, err := structs.Decode[connector.IFtdcHubFtdcAttestationRequest](connector.MessageArguments[constants.Prove], ib.GeneralData.OriginalMessage)
+	fullRequest, err := structs.Decode[connector.IFtdcHubFtdcAttestationRequest](connector.MessageArguments[op.Prove], ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding request: %v", err) // should never happen
 	}
