@@ -1,6 +1,7 @@
 package instructions
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -75,7 +76,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, _, err := hashFTDCMessage(fullRequest, attResponse, ib.GeneralData.Timestamp)
+	hashToBeSigned, err := hashFTDCMessage(fullRequest, attResponse, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing ftdc message: %w", err)
 	}
@@ -120,7 +121,7 @@ func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
 }
 
 // hashFTDCMessage is here temporarily.
-func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody []byte, timestamp uint64) (common.Hash, hexutil.Bytes, error) {
+func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody []byte, timestamp uint64) (common.Hash, error) {
 	header := connector.IFtdcHubFtdcResponseHeader{
 		AttestationType:    req.Header.AttestationType,
 		SourceId:           req.Header.SourceId,
@@ -132,7 +133,7 @@ func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody 
 
 	encHeader, err := EncodeFTDCResponse(header)
 	if err != nil {
-		return common.Hash{}, nil, err
+		return common.Hash{}, err
 	}
 
 	headerHash := crypto.Keccak256Hash(encHeader)
@@ -141,7 +142,15 @@ func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody 
 
 	msgHash := crypto.Keccak256Hash(headerHash[:], reqBodyHash[:], resBodyHash[:])
 
-	return msgHash, encHeader, nil
+	tempBuffer := bytes.NewBuffer(nil)
+
+	tempBuffer.WriteByte(1)           // 1 byte (protocolId=1)
+	tempBuffer.Write(make([]byte, 5)) // 4 bytes (votingRoundId=0), 1 byte (isSecureRandom=false)
+	tempBuffer.Write(msgHash[:])      // Type (1 byte)
+
+	hashToBeSigned := crypto.Keccak256Hash(tempBuffer.Bytes())
+
+	return hashToBeSigned, nil
 }
 
 func EncodeFTDCResponse(header connector.IFtdcHubFtdcResponseHeader) (hexutil.Bytes, error) {
