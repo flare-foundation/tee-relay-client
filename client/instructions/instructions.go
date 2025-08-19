@@ -121,12 +121,14 @@ type Base struct {
 func (ib *Base) EventToData(timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		DataFixed: instruction.DataFixed{
-			InstructionID:   ib.Event.InstructionId,
-			Timestamp:       timestamp,
-			RewardEpochID:   ib.Event.RewardEpochId,
-			OPType:          ib.Event.OpType,
-			OPCommand:       ib.Event.OpCommand,
-			OriginalMessage: ib.Event.Message,
+			InstructionID:      ib.Event.InstructionId,
+			Timestamp:          timestamp,
+			RewardEpochID:      ib.Event.RewardEpochId,
+			OPType:             ib.Event.OpType,
+			OPCommand:          ib.Event.OpCommand,
+			Cosigners:          ib.Event.Cosigners,
+			CosignersThreshold: ib.Event.CosignersThreshold,
+			OriginalMessage:    ib.Event.Message,
 		},
 		AdditionalVariableMessage: hexutil.Bytes{},
 	}
