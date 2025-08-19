@@ -76,7 +76,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, err := hashFTDCMessage(fullRequest, attResponse, ib.GeneralData.Timestamp)
+	hashToBeSigned, err := hashFTDCMessage(fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing ftdc message: %w", err)
 	}
@@ -121,13 +121,13 @@ func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
 }
 
 // hashFTDCMessage is here temporarily.
-func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody []byte, timestamp uint64) (common.Hash, error) {
+func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody []byte, cosigners []common.Address, cosignersThreshold uint64, timestamp uint64) (common.Hash, error) {
 	header := connector.IFtdcHubFtdcResponseHeader{
 		AttestationType:    req.Header.AttestationType,
 		SourceId:           req.Header.SourceId,
 		ThresholdBIPS:      req.Header.ThresholdBIPS,
-		Cosigners:          req.Header.Cosigners,
-		CosignersThreshold: req.Header.CosignersThreshold,
+		Cosigners:          cosigners,
+		CosignersThreshold: cosignersThreshold,
 		Timestamp:          timestamp,
 	}
 

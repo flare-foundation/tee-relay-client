@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
@@ -19,6 +20,8 @@ const TeeInstructionsAddress = "0x1bB2e744E5f7aFFC0dA0d87FA723Ae679f08ca80"
 type Logs []database.Log
 
 func TestIntegration(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
@@ -27,8 +30,6 @@ func TestIntegration(t *testing.T) {
 		APIKeyName: "X-API-KEY",
 		APIKeys:    []string{"123"},
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	signer, cred := NewTestSigner(cfg, prv)
 
@@ -57,15 +58,18 @@ func TestIntegration(t *testing.T) {
 	id1 := events[1].Topic1
 
 	for range 2 {
-		x := <-out
-
-		switch hex.EncodeToString(x.GeneralData.InstructionID[:]) {
-		case id0:
-			require.Equal(t, 1, len(x.Signatures))
-		case id1:
-			require.Equal(t, 2, len(x.Signatures))
-		default:
-			t.Error("no matching id")
+		select {
+		case x := <-out:
+			switch hex.EncodeToString(x.GeneralData.InstructionID[:]) {
+			case id0:
+				require.Equal(t, 2, len(x.Signatures))
+			case id1:
+				require.Equal(t, 2, len(x.Signatures))
+			default:
+				t.Error("no matching id")
+			}
+		case <-ctx.Done():
+			t.Error("timed out")
 		}
 	}
 
