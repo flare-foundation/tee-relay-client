@@ -20,49 +20,10 @@ import (
 type InstructionClass int
 
 const (
-	InvalidInstructionClass InstructionClass = iota
+	Invalid InstructionClass = iota
 	Pl
 	FTDC
 )
-
-// OPToInstClass is a mapping from OPCommand to InstructionClass.
-var OPToInstClass map[common.Hash]InstructionClass
-
-var plainCommands = []op.Command{
-	// REG
-
-	op.TEEAttestation,
-
-	// WALLET
-
-	op.KeyDataProviderRestore,
-	op.KeyDataProviderRestoreTest,
-	op.KeyGenerate,
-	op.KeyDelete,
-
-	// XRP,BTC
-	op.Pay,
-	op.Reissue,
-}
-
-var ftdcCommands = []op.Command{
-	// FTDC
-	op.Prove,
-}
-
-func init() {
-	OPToInstClass = make(map[common.Hash]InstructionClass)
-
-	for j := range plainCommands {
-		hexCommand := plainCommands[j].Hash()
-		OPToInstClass[hexCommand] = Pl
-	}
-
-	for j := range ftdcCommands {
-		hexCommand := ftdcCommands[j].Hash()
-		OPToInstClass[hexCommand] = FTDC
-	}
-}
 
 // Router holds processors for instructions.
 type Router struct {
@@ -120,11 +81,7 @@ func (r *Router) Start(ctx context.Context, out chan<- *Base) {
 
 // Route returns the processor for the instruction base.
 func (r *Router) Route(b *Base) (Processor, error) {
-	ic, ok := OPToInstClass[b.Event.OpCommand]
-	if !ok {
-		return nil, fmt.Errorf("unsorted opCommand %v", string(b.Event.OpCommand[:]))
-	}
-
+	ic := instClass(b.Event.OpType, b.Event.OpCommand)
 	switch ic {
 	case Pl:
 		return r.baseProcessor, nil
@@ -145,7 +102,7 @@ func (r *Router) Route(b *Base) (Processor, error) {
 		}
 
 		return processor, nil
-	case InvalidInstructionClass: // should never happen
+	case Invalid: // should never happen
 		return nil, fmt.Errorf("unexpected instructions.InstructionClass: %#v", ic)
 	default: // should never happen
 		return nil, fmt.Errorf("unexpected instructions.InstructionClass: %#v", ic)
@@ -161,4 +118,19 @@ func attTypeAndSourceID(header *connector.IFtdcHubFtdcRequestHeader) ([64]byte, 
 	copy(res[32:], header.SourceId[:])
 
 	return res, nil
+}
+
+func instClass(opType, opCommand common.Hash) InstructionClass {
+	t := op.HashToOPType(opType)
+	c := op.HashToOPCommand(opCommand)
+
+	if t == op.FTDC && c == op.Prove {
+		return FTDC
+	}
+
+	if op.IsValid(t, c) {
+		return Pl
+	}
+
+	return Invalid
 }

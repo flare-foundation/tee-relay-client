@@ -9,10 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSorting(t *testing.T) {
-	require.Equal(t, len(OPToInstClass), len(plainCommands)+len(ftdcCommands))
-}
-
 func TestParseInstruction(t *testing.T) {
 	// instruction event of F_XRP, PAY with "todo" message, no cosigners, and two machines to send to.
 	eventDBjson := `{
