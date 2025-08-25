@@ -8,7 +8,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/tee-relay-client/utils"
 )
 
 type Config struct {
@@ -51,17 +50,29 @@ func (v *Verifier) AttTypeAndSourceID() ([64]byte, error) {
 func JoinAttTypeAndSourceID(attType string, sourceID string) ([64]byte, error) {
 	x := [64]byte{}
 
-	at, err := utils.ToBytes32(attType)
+	at, err := toBytes32(attType)
 	if err != nil {
 		return x, fmt.Errorf("att type: %v", err)
 	}
-	si, err := utils.ToBytes32(sourceID)
+	si, err := toBytes32(sourceID)
 	if err != nil {
 		return x, fmt.Errorf("source ID: %v", err)
 	}
 
 	copy(x[0:32], at.Bytes())
 	copy(x[32:], si.Bytes())
+
+	return x, nil
+}
+
+// toBytes32 returns Solidity's bytes32(s) ([]byte(s) appended with zeros to length 32)
+// String s can be at most 32 characters long, otherwise an error is returned.
+func toBytes32(s string) (common.Hash, error) {
+	if len(s) > 32 {
+		return common.Hash{}, fmt.Errorf("string %s too long. At most 32 characters allowed", s)
+	}
+	x := [32]byte{}
+	copy(x[:], s)
 
 	return x, nil
 }

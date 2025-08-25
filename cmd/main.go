@@ -31,11 +31,13 @@ func main() {
 	cl := client.New(cfg)
 	cl.Run(ctx)
 
-	select {
-	case sig := <-signalChan:
-		logger.Infof("Received %v signal, shutting down", sig)
-	case <-ctx.Done():
-		logger.Infof("Context canceled %v signal, shutting down", ctx.Err())
-	}
-	cancel()
+	go func() {
+		select {
+		case sig := <-signalChan:
+			logger.Infof("Received %v signal, shutting down", sig)
+		case <-ctx.Done():
+			logger.Infof("Context canceled %v signal, shutting down", ctx.Err())
+		}
+		cancel()
+	}()
 }

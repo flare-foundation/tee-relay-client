@@ -13,7 +13,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
-	"github.com/flare-foundation/tee-relay-client/client/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/instructions"
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query

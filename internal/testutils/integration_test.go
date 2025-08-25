@@ -1,4 +1,4 @@
-package test
+package testutils_test
 
 import (
 	"context"
@@ -11,7 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/tee-relay-client/client/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +32,7 @@ func TestIntegration(t *testing.T) {
 		APIKeys:    []string{"123"},
 	}
 
-	signer, cred := NewTestSigner(cfg, prv)
+	signer, cred := testutils.NewTestSigner(cfg, prv)
 
 	go func() {
 		err := signer.Run(ctx)

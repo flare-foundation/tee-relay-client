@@ -1,11 +1,11 @@
-package test
+package testutils
 
 import (
 	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/tee-relay-client/client/config"
+	"github.com/flare-foundation/tee-relay-client/internal/config"
 )
 
 // NewTestSigner creates a signer server that can be used in simulation.

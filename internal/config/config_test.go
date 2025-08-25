@@ -1,11 +1,20 @@
-package utils
+package config
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/stretchr/testify/require"
 )
+
+func TestConfig(t *testing.T) {
+	const path = "../../config.toml.example"
+
+	_, err := toml.Read[Config](path, true)
+
+	require.NoError(t, err)
+}
 
 func TestToBytes32(t *testing.T) {
 	tests := []struct {
@@ -39,7 +48,7 @@ func TestToBytes32(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		out, err := ToBytes32(test.in)
+		out, err := toBytes32(test.in)
 
 		if test.err {
 			require.Error(t, err, test.in)

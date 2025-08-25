@@ -5,10 +5,10 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/tee-relay-client/client/collector"
-	"github.com/flare-foundation/tee-relay-client/client/config"
-	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/client/sender"
+	"github.com/flare-foundation/tee-relay-client/internal/collector"
+	"github.com/flare-foundation/tee-relay-client/internal/config"
+	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/sender"
 )
 
 type Client struct {

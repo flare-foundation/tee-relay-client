@@ -10,10 +10,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/tee-relay-client/client/config"
-	"github.com/flare-foundation/tee-relay-client/client/instructions"
-	"github.com/flare-foundation/tee-relay-client/client/sender"
-	"github.com/flare-foundation/tee-relay-client/test"
+	"github.com/flare-foundation/tee-relay-client/internal/config"
+	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/sender"
+	"github.com/flare-foundation/tee-relay-client/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func TestPrepareInstruction(t *testing.T) {
 		APIKeys:    []string{"123"},
 	}
 
-	signer, cred := test.NewTestSigner(cfg, prv)
+	signer, cred := testutils.NewTestSigner(cfg, prv)
 
 	go func() {
 		err := signer.Run(ctx)

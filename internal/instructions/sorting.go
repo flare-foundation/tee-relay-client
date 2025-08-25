@@ -9,7 +9,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/tee-relay-client/client/config"
+	"github.com/flare-foundation/tee-relay-client/internal/config"
 )
 
 // Instruction Class refers to an implementation of Instruction interface.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/tee-relay-client/client/collector"
+	"github.com/flare-foundation/tee-relay-client/internal/collector"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
