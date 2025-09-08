@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
@@ -60,12 +61,23 @@ type Verifier struct {
 }
 
 type VerifierResponse struct {
-	Response hexutil.Bytes
+	ResponseBody hexutil.Bytes
+}
+
+type VerifierRequest struct {
+	AttestationType common.Hash
+	SourceID        common.Hash
+	RequestBody     hexutil.Bytes
 }
 
 // Response sends request to the verifier server.
 func (v *Verifier) Response(ctx context.Context, request connector.IFtdcHubFtdcAttestationRequest) ([]byte, bool, error) {
-	res, err := call.PostWithRetry[connector.IFtdcHubFtdcAttestationRequest, VerifierResponse](ctx, v.URL, v.APIKey(), request, call.Params{
+	verifierRequest := VerifierRequest{
+		AttestationType: request.Header.AttestationType,
+		SourceID:        request.Header.SourceId,
+		RequestBody:     request.RequestBody,
+	}
+	res, err := call.PostWithRetry[VerifierRequest, VerifierResponse](ctx, v.URL, v.APIKey(), verifierRequest, call.Params{
 		Timeout:         10 * time.Second,
 		MaxResponseSize: 1000000000, // todo: set a reasonable value
 	},
@@ -83,5 +95,5 @@ func (v *Verifier) Response(ctx context.Context, request connector.IFtdcHubFtdcA
 		return nil, false, nil
 	}
 
-	return res.Message.Response, true, nil
+	return res.Message.ResponseBody, true, nil
 }
