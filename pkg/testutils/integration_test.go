@@ -55,8 +55,8 @@ func TestIntegration(t *testing.T) {
 
 	in <- events
 
-	id0 := events[0].Topic1
-	id1 := events[1].Topic1
+	id0 := events[0].Topic2
+	id1 := events[1].Topic2
 
 	for range 2 {
 		select {

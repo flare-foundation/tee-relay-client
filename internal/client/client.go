@@ -6,9 +6,9 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/internal/collector"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 type Client struct {

@@ -49,7 +49,7 @@ func Run(ctx context.Context, router *Router, in <-chan []database.Log, out chan
 				for j := range instructionEvents {
 					err := Handle(ctx, instructionEvents[j], router)
 					if err != nil {
-						logger.Errorf("error handling instruction %s: %v", instructionEvents[j].Topic1, err)
+						logger.Errorf("error handling instruction %s: %v", instructionEvents[j].Topic2, err)
 					}
 				}
 			}
@@ -101,7 +101,7 @@ func Handle(ctx context.Context, inLog database.Log, r *Router) error {
 	go func() {
 		err := processor.Process(ctx, instr)
 		if err != nil {
-			logger.Errorf("processing instruction %s, %v", inLog.Topic1, err)
+			logger.Errorf("processing instruction %s, %v", inLog.Topic2, err)
 		}
 	}()
 
