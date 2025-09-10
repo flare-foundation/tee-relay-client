@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/tee-relay-client/internal/config"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query

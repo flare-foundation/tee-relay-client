@@ -9,7 +9,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/flare-foundation/tee-relay-client/internal/client"
-	"github.com/flare-foundation/tee-relay-client/internal/config"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 const (

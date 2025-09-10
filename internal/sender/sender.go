@@ -12,7 +12,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
 )
 
@@ -56,8 +55,17 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 
 // todo get this from the node repo (or somewhere else).
 type SignedReceipt struct {
-	Receipt   tee.TeeStructsVoteReceipt `json:"receipt"`
-	Signature hexutil.Bytes             `json:"signature"`
+	Receipt   Receipt       `json:"receipt"`
+	Signature hexutil.Bytes `json:"signature"`
+}
+
+type Receipt struct {
+	InstructionHash               common.Hash   `json:"instructionHash"`
+	Sequence                      uint64        `json:"sequence"`
+	Signature                     hexutil.Bytes `json:"signature"`
+	AdditionalVariableMessageHash common.Hash   `json:"additionalVariableMessageHash"`
+	Timestamp                     uint64        `json:"timestamp"`
+	VoteHash                      common.Hash   `json:"voteHash"`
 }
 
 // SendToTEE sends the instruction instruction endpoint of tee at url.

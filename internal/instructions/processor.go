@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/tee-relay-client/internal/config"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 type Processor interface {

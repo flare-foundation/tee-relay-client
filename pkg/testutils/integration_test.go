@@ -12,7 +12,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
-	"github.com/flare-foundation/tee-relay-client/internal/testutils"
+	"github.com/flare-foundation/tee-relay-client/pkg/testutils"
 	"github.com/stretchr/testify/require"
 )
 
