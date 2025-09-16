@@ -21,6 +21,10 @@ func main() {
 	if err != nil {
 		logger.Panicf("cannot read configs: %s", err)
 	}
+	if err := cfg.CheckAddress(); err != nil {
+		logger.Panicf("checking address %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	signalChan := make(chan os.Signal, 1)
@@ -31,13 +35,11 @@ func main() {
 	cl := client.New(cfg)
 	cl.Run(ctx)
 
-	go func() {
-		select {
-		case sig := <-signalChan:
-			logger.Infof("Received %v signal, shutting down", sig)
-		case <-ctx.Done():
-			logger.Infof("Context canceled %v signal, shutting down", ctx.Err())
-		}
-		cancel()
-	}()
+	select {
+	case sig := <-signalChan:
+		logger.Infof("Received %v signal, shutting down", sig)
+	case <-ctx.Done():
+		logger.Infof("Context canceled %v signal, shutting down", ctx.Err())
+	}
+	cancel()
 }

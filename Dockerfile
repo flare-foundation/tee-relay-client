@@ -1,4 +1,4 @@
-FROM golang:1.24.4 AS builder
+FROM golang:1.25.1 AS builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /app/tee-relay-client main/main.go
+RUN go build -o /app/tee-relay-client cmd/testmain/main.go
 
 FROM debian:latest AS execution
 
