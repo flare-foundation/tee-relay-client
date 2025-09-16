@@ -34,7 +34,7 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 				return
 			}
 
-			for j := range instr.Event.TeeMachines {
+			for j := range instr.Tees {
 				go func() {
 					msg, url, err := PrepareInstruction(*instr, j)
 					if err != nil {
@@ -92,14 +92,14 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 
 // PrepareInstruction prepares instruction for j-th tee machine and returns its url.
 func PrepareInstruction(ib instructions.Base, j int) (*instruction.Instruction, string, error) {
-	if j < 0 || j >= len(ib.Event.TeeMachines) {
-		return nil, "", fmt.Errorf("invalid tee index %d. Should be in [0,%d)", j, len(ib.Event.TeeMachines))
+	if j < 0 || j >= len(ib.Tees) {
+		return nil, "", fmt.Errorf("invalid tee index %d. Should be in [0,%d)", j, len(ib.Tees))
 	}
 
 	data := ib.GeneralData
-	data.TeeID = ib.Event.TeeMachines[j].TeeId
+	data.TeeID = ib.Tees[j].TeeId
 
-	url := ib.Event.TeeMachines[j].Url
+	url := ib.Tees[j].Url
 
 	challenge := common.Hash{}
 	_, err := rand.Read(challenge[:])
