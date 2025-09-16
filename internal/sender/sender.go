@@ -84,9 +84,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 		})
 
 	if err == nil {
-		logger.Infof("delivered instruction %s to %s, res: %v", instr.Data.InstructionID.String(), url, res.Message)
-	} else {
-		logger.Errorf("error sending: %v", err)
+		logger.Debugf("delivered instruction %s to %s, res: %v", instr.Data.InstructionID.String(), url, res.Message)
 	}
 
 	return err

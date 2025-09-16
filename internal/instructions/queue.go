@@ -70,7 +70,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 		case true:
 			return fmt.Errorf("getting response: %v", err)
 		case false:
-			logger.Debugf("request from %s event failed %v, not retrying", ib.Event.InstructionId, err)
+			logger.Debugf("request %s failed %v, not retrying", ib.GeneralData.InstructionID.String(), err)
 			return nil
 		}
 	}
