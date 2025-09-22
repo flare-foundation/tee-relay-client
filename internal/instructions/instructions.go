@@ -146,7 +146,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	hashes := make([]common.Hash, len(ib.Tees))
 	var err error
 
-	for j := range ib.Event.TeeMachines {
+	for j := range ib.Tees {
 		data.TeeID = ib.Tees[j].TeeId
 		hashes[j], err = data.HashForSigning()
 		if err != nil {
