@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +17,16 @@ type Config struct {
 	TeeExtensionRegistry common.Address  `toml:"tee_extension_registry"`
 	Signer               Credentials     `toml:"signer"` // credentials for signer
 	FTDC                 FTDC            `toml:"ftdc"`
+}
+
+func (c *Config) CheckAddress() error {
+	zeroAddress := common.Address{}
+
+	if c.TeeExtensionRegistry == zeroAddress {
+		return errors.New("TeeExtensionRegistry address not set")
+	}
+
+	return nil
 }
 
 type Credentials struct {

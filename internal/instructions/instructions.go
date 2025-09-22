@@ -110,6 +110,7 @@ func Handle(ctx context.Context, inLog database.Log, r *Router) error {
 
 type Base struct {
 	Event       *teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
+	Tees        []teeextensionregistry.ITeeMachineRegistryTeeMachine
 	GeneralData instruction.Data // Data without TeeID
 	Signatures  []hexutil.Bytes
 }
@@ -132,6 +133,8 @@ func (ib *Base) EventToData(timestamp uint64) {
 		},
 		AdditionalVariableMessage: hexutil.Bytes{},
 	}
+
+	ib.Tees = removeDuplicates(ib.Event.TeeMachines)
 }
 
 // HashesForSigning prepares hashes of instruction data that are to be signed.
@@ -140,11 +143,11 @@ func (ib *Base) EventToData(timestamp uint64) {
 func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	data := ib.GeneralData
 
-	hashes := make([]common.Hash, len(ib.Event.TeeMachines))
+	hashes := make([]common.Hash, len(ib.Tees))
 	var err error
 
 	for j := range ib.Event.TeeMachines {
-		data.TeeID = ib.Event.TeeMachines[j].TeeId
+		data.TeeID = ib.Tees[j].TeeId
 		hashes[j], err = data.HashForSigning()
 		if err != nil {
 			return nil, fmt.Errorf("hash of %v; %v", data, err)
@@ -169,4 +172,18 @@ func (ib *Base) Sign(ctx context.Context, s *Signer) error {
 	ib.Signatures = signatures
 
 	return nil
+}
+
+// removeDuplicates creates a new array from s without duplicated entries.
+func removeDuplicates(s []teeextensionregistry.ITeeMachineRegistryTeeMachine) []teeextensionregistry.ITeeMachineRegistryTeeMachine {
+	set := make(map[teeextensionregistry.ITeeMachineRegistryTeeMachine]bool)
+	unique := make([]teeextensionregistry.ITeeMachineRegistryTeeMachine, 0, len(s))
+	for j := range s {
+		if !set[s[j]] {
+			set[s[j]] = true
+			unique = append(unique, s[j])
+		}
+	}
+
+	return unique
 }
