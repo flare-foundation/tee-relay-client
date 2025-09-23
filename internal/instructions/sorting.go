@@ -23,13 +23,15 @@ const (
 	Invalid InstructionClass = iota
 	Pl
 	FTDC
+	Backup
 )
 
 // Router holds processors for instructions.
 type Router struct {
-	baseProcessor  *BaseProcessor
-	ftdcProcessors map[[64]byte]*FTDCProcessor
-	ftdcHandler    *FTDCHandler
+	baseProcessor   *BaseProcessor
+	ftdcProcessors  map[[64]byte]*FTDCProcessor
+	ftdcHandler     *FTDCHandler
+	backupProcessor *BackupProcessor
 }
 
 // NewRouter assembles Router from configs.
@@ -39,6 +41,8 @@ func NewRouter(sigCfg *config.Credentials, ftdcCfg *config.FTDC) *Router {
 	r.baseProcessor = &BaseProcessor{
 		signer: &Signer{sigCfg},
 	}
+
+	r.backupProcessor = &BackupProcessor{r.baseProcessor}
 
 	r.ftdcProcessors = make(map[[64]byte]*FTDCProcessor)
 
@@ -102,6 +106,8 @@ func (r *Router) Route(b *Base) (Processor, error) {
 		}
 
 		return processor, nil
+	case Backup:
+		return r.backupProcessor, nil
 	case Invalid: // should never happen
 		return nil, fmt.Errorf("unexpected instructions.InstructionClass: %#v", ic)
 	default: // should never happen
@@ -124,13 +130,14 @@ func instClass(opType, opCommand common.Hash) InstructionClass {
 	t := op.HashToOPType(opType)
 	c := op.HashToOPCommand(opCommand)
 
-	if t == op.FTDC && c == op.Prove {
+	switch {
+	case t == op.FTDC && c == op.Prove:
 		return FTDC
-	}
-
-	if op.IsValid(t, c) {
+	case t == op.Wallet && c == op.KeyDataProviderRestore:
+		return Backup
+	case op.IsValid(t, c):
 		return Pl
+	default:
+		return Invalid
 	}
-
-	return Invalid
 }

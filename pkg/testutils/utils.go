@@ -17,7 +17,7 @@ func NewTestSigner(cfg signer.Config, prv *ecdsa.PrivateKey) (*signer.Signer, *c
 		apiKey = cfg.APIKeys[0]
 	}
 
-	url := fmt.Sprintf("http://localhost%s/sign", cfg.Addr)
+	url := fmt.Sprintf("http://localhost%s", cfg.Addr)
 
 	cred := config.Credentials{
 		KeyName: cfg.APIKeyName,
