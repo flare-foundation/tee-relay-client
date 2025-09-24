@@ -68,7 +68,7 @@ func instructionsListener(
 		logger.Panic("fetch initial state error:", err)
 	}
 
-	lastQueriedIndex := state.Index - 100 //TODO from where we start
+	lastQueriedIndex := state.Index - 100 // TODO from where we start
 
 	params := database.LogsParams{
 		Address: teeExtensionRegistry,

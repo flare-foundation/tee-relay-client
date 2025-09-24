@@ -65,25 +65,30 @@ func TestPrepareInstruction(t *testing.T) {
 
 	// instr.Dispatch(out)
 
-	base := <-out
+	select {
+	case err := <-ctx.Done():
+		t.Errorf("contex canceled: %v", err)
+		cancel()
+	case base := <-out:
 
-	in, url, err := sender.PrepareInstruction(*base, 0)
-	require.NoError(t, err)
+		in, url, err := sender.PrepareInstruction(*base, 0)
+		require.NoError(t, err)
 
-	teeID1 := common.HexToAddress("e4e29E5BC4B1b96ae1111B7b3492cf12EC20417b")
-	expectedURL := "https://example.com"
+		teeID1 := common.HexToAddress("e4e29E5BC4B1b96ae1111B7b3492cf12EC20417b")
+		expectedURL := "https://example.com"
 
-	require.Equal(t, teeID1, in.Data.TeeID)
-	require.Equal(t, expectedURL, url)
+		require.Equal(t, teeID1, in.Data.TeeID)
+		require.Equal(t, expectedURL, url)
 
-	_, _, err = sender.PrepareInstruction(*base, 2)
-	require.Error(t, err)
+		_, _, err = sender.PrepareInstruction(*base, 2)
+		require.Error(t, err)
 
-	// chack that base is unchanged
-	require.Equal(t, base.GeneralData.TeeID, common.Address{})
+		// chack that base is unchanged
+		require.Equal(t, base.GeneralData.TeeID, common.Address{})
 
-	err = signer.Shutdown(ctx)
-	require.NoError(t, err)
+		err = signer.Shutdown(ctx)
+		require.NoError(t, err)
 
-	cancel()
+		cancel()
+	}
 }
