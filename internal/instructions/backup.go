@@ -87,40 +87,9 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 		return err
 	}
 
-	index := slices.Index(wBackup.ProviderEncryptedParts.OwnersPublicKeys, *pk)
-	indexAdmin := slices.Index(wBackup.AdminEncryptedParts.OwnersPublicKeys, *pk)
-
-	var plaintextForTEE []byte
-
-	switch {
-	case index >= 0 && indexAdmin >= 0:
-		keySplits := [2]backup.KeySplit{}
-
-		keySplits[0], err = b.decryptKeySplit(ctx, wBackup.ProviderEncryptedParts.Splits[index])
-		if err != nil {
-			return err
-		}
-		keySplits[1], err = b.decryptKeySplit(ctx, wBackup.AdminEncryptedParts.Splits[indexAdmin])
-		if err != nil {
-			return err
-		}
-
-		plaintextForTEE, err = json.Marshal(keySplits)
-		if err != nil {
-			return err
-		}
-	case index >= 0 && indexAdmin == -1:
-		plaintextForTEE, err = b.base.signer.Decrypt(ctx, wBackup.ProviderEncryptedParts.Splits[index])
-		if err != nil {
-			return err
-		}
-	case index == -1 && indexAdmin >= 0:
-		plaintextForTEE, err = b.base.signer.Decrypt(ctx, wBackup.AdminEncryptedParts.Splits[indexAdmin])
-		if err != nil {
-			return err
-		}
-	default:
-		return nil
+	ptForTEE, err := b.plaintextForTEE(ctx, wBackup, pk)
+	if ptForTEE == nil { // if err is not nil, ptForTEE is nil. If err is nil and ptForTEE is nil, there is the entity legitimately has nothing to send.
+		return err
 	}
 
 	teePK, err := types.ParsePubKey(types.PublicKey{
@@ -132,8 +101,7 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 	}
 
 	pke := ecies.ImportECDSAPublic(teePK)
-
-	cipher, err := ecies.Encrypt(rand.Reader, pke, plaintextForTEE, nil, nil)
+	cipher, err := ecies.Encrypt(rand.Reader, pke, ptForTEE, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -167,4 +135,49 @@ func (b *BackupProcessor) decryptKeySplit(ctx context.Context, cipher []byte) (b
 	}
 
 	return keySplit, nil
+}
+
+func (b *BackupProcessor) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk *types.PublicKey) ([]byte, error) {
+	index := slices.Index(wb.ProviderEncryptedParts.OwnersPublicKeys, *pk)
+	indexAdmin := slices.Index(wb.AdminEncryptedParts.OwnersPublicKeys, *pk)
+
+	var err error
+
+	switch {
+	case index >= 0 && indexAdmin >= 0:
+		keySplits := [2]backup.KeySplit{}
+
+		keySplits[0], err = b.decryptKeySplit(ctx, wb.ProviderEncryptedParts.Splits[index])
+		if err != nil {
+			return nil, err
+		}
+		keySplits[1], err = b.decryptKeySplit(ctx, wb.AdminEncryptedParts.Splits[indexAdmin])
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := json.Marshal(keySplits)
+		if err != nil {
+			return nil, err
+		}
+
+		return res, nil
+	case index >= 0 && indexAdmin == -1:
+		res, err := b.base.signer.Decrypt(ctx, wb.ProviderEncryptedParts.Splits[index])
+		if err != nil {
+			return nil, err
+		}
+
+		return res, err
+	case index == -1 && indexAdmin >= 0:
+		res, err := b.base.signer.Decrypt(ctx, wb.AdminEncryptedParts.Splits[indexAdmin])
+		if err != nil {
+			return nil, err
+		}
+
+		return res, err
+
+	default:
+		return nil, nil
+	}
 }
