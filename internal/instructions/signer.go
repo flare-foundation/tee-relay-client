@@ -18,7 +18,7 @@ import (
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
-const bytesPerSignature = 1000  // TODO: make this more restrictive
+const bytesPerSignature = 100   // TODO: make this more restrictive
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
 // Signer holds credentials for the signer server.

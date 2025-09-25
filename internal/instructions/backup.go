@@ -25,7 +25,8 @@ type BackupProcessor struct {
 	base *BaseProcessor
 }
 
-const sizeLimit = 100 << 10 // 100 Kib
+const sizeLimit = 500 << 10    // 500 Kib
+const errorSizeLimit = 1 << 10 // 1 Kib
 
 // Process handles the backup restore flow for a TEE wallet.
 // It fetches backup data, decodes and decrypts it, prepares the message for TEE,
@@ -51,7 +52,7 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
-			respLimited := &io.LimitedReader{R: resp.Body, N: sizeLimit}
+			respLimited := &io.LimitedReader{R: resp.Body, N: errorSizeLimit}
 			buf := new(strings.Builder)
 			_, err := io.Copy(buf, respLimited)
 			// check errors
