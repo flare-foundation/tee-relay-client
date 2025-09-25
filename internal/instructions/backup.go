@@ -27,6 +27,9 @@ type BackupProcessor struct {
 
 const sizeLimit = 100 << 10 // 100 Kib
 
+// Process handles the backup restore flow for a TEE wallet.
+// It fetches backup data, decodes and decrypts it, prepares the message for TEE,
+// encrypts it for the TEE node, signs the message, and sends it to the output channel.
 func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 	fullRequest, err := structs.Decode[wallet.ITeeWalletBackupManagerKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
 
@@ -121,6 +124,7 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 	}
 }
 
+// decryptKeySplit decrypts a KeySplit from the provided cipher.
 func (b *BackupProcessor) decryptKeySplit(ctx context.Context, cipher []byte) (backup.KeySplit, error) {
 	var keySplit backup.KeySplit
 
@@ -137,6 +141,11 @@ func (b *BackupProcessor) decryptKeySplit(ctx context.Context, cipher []byte) (b
 	return keySplit, nil
 }
 
+// plaintextForTEE returns the decrypted key splits for the TEE node, based on the wallet backup and public key.
+// It finds the relevant encrypted parts, decrypts them, and marshals the result.
+// If the public key is both among the provider and admin owners, it returns marshaled array of both split.
+// If the public key is only among one of them, it returns the decrypted split directly.
+// If the public key is not found in either, it returns nil which indicates there is nothing to send.
 func (b *BackupProcessor) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk *types.PublicKey) ([]byte, error) {
 	index := slices.Index(wb.ProviderEncryptedParts.OwnersPublicKeys, *pk)
 	indexAdmin := slices.Index(wb.AdminEncryptedParts.OwnersPublicKeys, *pk)
