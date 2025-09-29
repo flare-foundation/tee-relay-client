@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -75,8 +78,18 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 		return err
 	}
 
+	err = checkConsistency(fullRequest, response.BackupID)
+	if err != nil {
+		return fmt.Errorf("backup package inconsistent with the request %w", err)
+	}
+
 	var wBackup backup.WalletBackup
 	err = json.Unmarshal(response.WalletBackup, &wBackup)
+	if err != nil {
+		return err
+	}
+
+	err = wBackup.Check()
 	if err != nil {
 		return err
 	}
@@ -139,6 +152,11 @@ func (b *BackupProcessor) decryptKeySplit(ctx context.Context, cipher []byte) (b
 		return keySplit, err
 	}
 
+	err = keySplit.VerifySignature()
+	if err != nil {
+		return keySplit, err
+	}
+
 	return keySplit, nil
 }
 
@@ -161,9 +179,18 @@ func (b *BackupProcessor) plaintextForTEE(ctx context.Context, wb backup.WalletB
 		if err != nil {
 			return nil, err
 		}
+
+		if !wb.WalletBackupID.Equal(&keySplits[0].WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+			return nil, errors.New("invalid wallet id in provider's key split")
+		}
+
 		keySplits[1], err = b.decryptKeySplit(ctx, wb.AdminEncryptedParts.Splits[indexAdmin])
 		if err != nil {
 			return nil, err
+		}
+
+		if !wb.WalletBackupID.Equal(&keySplits[1].WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+			return nil, errors.New("invalid wallet id in admin's key split")
 		}
 
 		res, err := json.Marshal(keySplits)
@@ -173,14 +200,32 @@ func (b *BackupProcessor) plaintextForTEE(ctx context.Context, wb backup.WalletB
 
 		return res, nil
 	case index >= 0 && indexAdmin == -1:
-		res, err := b.base.signer.Decrypt(ctx, wb.ProviderEncryptedParts.Splits[index])
+		keySplit, err := b.decryptKeySplit(ctx, wb.ProviderEncryptedParts.Splits[index])
+		if err != nil {
+			return nil, err
+		}
+
+		if !wb.WalletBackupID.Equal(&keySplit.WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+			return nil, errors.New("invalid wallet id in provider's key split")
+		}
+
+		res, err := json.Marshal(keySplit)
 		if err != nil {
 			return nil, err
 		}
 
 		return res, err
 	case index == -1 && indexAdmin >= 0:
-		res, err := b.base.signer.Decrypt(ctx, wb.AdminEncryptedParts.Splits[indexAdmin])
+		keySplit, err := b.decryptKeySplit(ctx, wb.AdminEncryptedParts.Splits[indexAdmin])
+		if err != nil {
+			return nil, err
+		}
+
+		if !wb.WalletBackupID.Equal(&keySplit.WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+			return nil, errors.New("invalid wallet id in admin's key split")
+		}
+
+		res, err := json.Marshal(keySplit)
 		if err != nil {
 			return nil, err
 		}
@@ -189,5 +234,42 @@ func (b *BackupProcessor) plaintextForTEE(ctx context.Context, wb backup.WalletB
 
 	default:
 		return nil, nil
+	}
+}
+
+// checkConsistency checks that the fields in the restore request match those in the wallet backup ID.
+func checkConsistency(request wallet.ITeeWalletBackupManagerKeyDataProviderRestore, id wallets.WalletBackupID) error {
+	pk, err := types.ParsePubKey(types.PublicKey{
+		X: request.TeePublicKey.X,
+		Y: request.TeePublicKey.Y,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	recoveredTeeID := crypto.PubkeyToAddress(*pk)
+
+	switch {
+	case recoveredTeeID != id.TeeID:
+		return errors.New("tee public key does not match the tee id in the wallet backup id")
+	case request.BackupId.TeeId != id.TeeID:
+		return errors.New("teeID in the request does not match the teeID in the wallet backup id")
+	case common.Hash(request.BackupId.WalletId) != id.WalletID:
+		return errors.New("walletID in the request does not match the walletID in the wallet backup id")
+	case request.BackupId.KeyId != id.KeyID:
+		return errors.New("keyID in the request does not match the keyID in the wallet backup id")
+	case !slices.Equal(request.BackupId.PublicKey, id.PublicKey):
+		return errors.New("publicKey in the request does not match the publicKey in the wallet backup id")
+	case common.Hash(request.BackupId.KeyType) != id.KeyType:
+		return errors.New("keyType in the request does not match the keyType in the wallet backup id")
+	case common.Hash(request.BackupId.SigningAlgo) != id.SigningAlgo:
+		return errors.New("signingAlgo in the request does not match the signingAlgo in the wallet backup id")
+	case request.BackupId.RewardEpochId != id.RewardEpochID:
+		return errors.New("rewardEpochID in the request does not match the rewardEpochID in the wallet backup id")
+	case common.Hash(request.BackupId.RandomNonce) != id.RandomNonce:
+		return errors.New("randomNonce in the request does not match the randomNonce in the wallet backup id")
+	default:
+		return nil
 	}
 }

@@ -18,7 +18,7 @@ import (
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
-const bytesPerSignature = 100   // TODO: make this more restrictive
+const bytesPerSignature = 140   // TODO: make this more restrictive?
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
 // Signer holds credentials for the signer server.
@@ -30,7 +30,7 @@ func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 
 	response, err := call.PostWithRetry[signer.SignBody, signer.SignedBody](ctx, s.URL+"/sign", s.APIKey(), req, call.Params{
 		Timeout:         timeout,
-		MaxResponseSize: int64(bytesPerSignature * len(hashes)),
+		MaxResponseSize: 50 + int64(bytesPerSignature*len(hashes)),
 	}, []int{},
 		retry.Params{
 			MaxAttempts: 3,
