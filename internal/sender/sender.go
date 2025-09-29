@@ -16,7 +16,7 @@ import (
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
-const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server  TODO: make this more restrictive
+const maxRespSize = 10 << 10    // 10 KiB for maximal response size of the server
 
 // Run starts a go routine that listens to instructions from in channel and sends them to tees.
 func Run(ctx context.Context, in <-chan *instructions.Base) {
