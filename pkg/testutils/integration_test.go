@@ -10,9 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/testutils"
+	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,20 +25,9 @@ func TestIntegration(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	cfg := signer.Config{
-		Addr:       ":8080",
-		APIKeyName: "X-API-KEY",
-		APIKeys:    []string{"123"},
-	}
+	sgnr := signer.NewLocal(prv)
 
-	signer, cred := testutils.NewTestSigner(cfg, prv)
-
-	go func() {
-		err := signer.Run(ctx)
-		require.Error(t, err)
-	}()
-
-	router := instructions.NewRouter(cred, nil)
+	router := instructions.NewRouter(sgnr, nil, nil)
 
 	eventsFile, err := os.ReadFile("./events.json")
 	require.NoError(t, err)

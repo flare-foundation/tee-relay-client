@@ -59,7 +59,7 @@ func main() {
 
 	sigServer, cred := testutils.NewTestSigner(sCfg, pk)
 
-	cfg.Signer = *cred
+	cfg.Signer.Credentials = *cred
 
 	go sigServer.ListenAndServe() //nolint:errcheck
 

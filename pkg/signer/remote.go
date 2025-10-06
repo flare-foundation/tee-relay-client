@@ -1,4 +1,4 @@
-package instructions
+package signer
 
 import (
 	"context"
@@ -22,13 +22,13 @@ const bytesPerSignature = 140   // TODO: make this more restrictive?
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
 // Signer holds credentials for the signer server.
-type Signer struct{ *config.Credentials }
+type Remote struct{ *config.Credentials }
 
-// FetchSignatures sends hashes to signer and returns the corresponding signatures.
-func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
+// Sign sends hashes to signer and returns the corresponding signatures.
+func (r Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signer.SignBody{Hashes: hashes}
 
-	response, err := call.PostWithRetry[signer.SignBody, signer.SignedBody](ctx, s.URL+"/sign", s.APIKey(), req, call.Params{
+	response, err := call.PostWithRetry[signer.SignBody, signer.SignedBody](ctx, r.URL+"/sign", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: 50 + int64(bytesPerSignature*len(hashes)),
 	}, []int{},
@@ -38,7 +38,7 @@ func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 			Timeout:     time.Minute,
 		})
 	if err != nil {
-		return nil, fmt.Errorf("post call to %v rejected %v", s.URL, err)
+		return nil, fmt.Errorf("post call to %v rejected %v", r.URL, err)
 	}
 
 	if len(hashes) != len(response.Message.Signatures) {
@@ -49,10 +49,10 @@ func (s Signer) FetchSignatures(ctx context.Context, hashes []common.Hash) ([]he
 }
 
 // Decrypt sends cipher to signer for decryption.
-func (s Signer) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, error) {
+func (r Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, error) {
 	req := signer.EncryptedBody{Cipher: cipher}
 
-	response, err := call.PostWithRetry[signer.EncryptedBody, signer.DecryptedBody](ctx, s.URL+"/decrypt", s.APIKey(), req, call.Params{
+	response, err := call.PostWithRetry[signer.EncryptedBody, signer.DecryptedBody](ctx, r.URL+"/decrypt", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: int64(10 * len(cipher)),
 	}, []int{},
@@ -62,29 +62,31 @@ func (s Signer) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, erro
 			Timeout:     time.Minute,
 		})
 	if err != nil {
-		return nil, fmt.Errorf("post call to %v rejected %v", s.URL, err)
+		return nil, fmt.Errorf("post call to %v rejected %v", r.URL, err)
 	}
 
 	return response.Message.Plain, nil
 }
 
 // Identify retrieves identity of the signer.
-func (s Signer) Identify(ctx context.Context) (*types.PublicKey, error) {
+func (r Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL+"/id", nil)
+	pk := types.PublicKey{}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, r.URL+"/id", nil)
 	if err != nil {
-		return nil, err
+		return pk, err
 	}
-	request.Header.Set(s.KeyName, s.Key)
+	request.Header.Set(r.KeyName, r.Key)
 
 	resp, err := client.Do(request)
 	if err != nil {
-		return nil, err
+		return pk, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
+		return pk, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
 	}
 
 	respLimited := &io.LimitedReader{R: resp.Body, N: 200}
@@ -92,10 +94,9 @@ func (s Signer) Identify(ctx context.Context) (*types.PublicKey, error) {
 	decoder := json.NewDecoder(respLimited)
 	decoder.DisallowUnknownFields()
 
-	pk := &types.PublicKey{}
-	err = decoder.Decode(pk)
+	err = decoder.Decode(&pk)
 	if err != nil {
-		return nil, err
+		return pk, err
 	}
 
 	return pk, nil

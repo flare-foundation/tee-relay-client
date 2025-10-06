@@ -81,7 +81,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 		return fmt.Errorf("hashing ftdc message: %w", err)
 	}
 
-	signature, err := h.signer.FetchSignatures(ctx, []common.Hash{hashToBeSigned})
+	signature, err := h.signer.Sign(ctx, []common.Hash{hashToBeSigned})
 	if err != nil {
 		return fmt.Errorf("signing response: %v", err)
 	}

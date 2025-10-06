@@ -104,8 +104,8 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 		return err
 	}
 
-	ptForTEE, err := b.plaintextForTEE(ctx, wBackup, pk)
-	if ptForTEE == nil { // if err is not nil, ptForTEE is nil. If err is nil and ptForTEE is nil, there is the entity legitimately has nothing to send.
+	ptForTEE, err := b.plaintextForTEE(ctx, wBackup, &pk)
+	if ptForTEE == nil { // if err is not nil, ptForTEE is nil. If err is nil and ptForTEE is nil, the entity legitimately has nothing to send.
 		return err
 	}
 
