@@ -3,10 +3,8 @@ package client
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-relay-client/internal/collector"
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
@@ -41,7 +39,7 @@ func New(cfg config.Config) *Client {
 		logger.Panic("Could not set signer:", err)
 	}
 
-	filterer, err := setFilterer(cfg.IsCosigner, sgnr)
+	filterer, err := instructions.NewFilterer(cfg.IsCosigner, sgnr)
 	if err != nil {
 		logger.Panic("Could not set filterer:", err)
 	}
@@ -72,24 +70,4 @@ func setSigner(cfg *config.Signer) (signer.Signer, error) {
 			Credentials: &cfg.Credentials,
 		}, nil
 	}
-}
-
-func setFilterer(isCosigner bool, sgnr signer.Signer) (instructions.Filterer, error) {
-	if !isCosigner {
-		return &instructions.ProviderFilterer{}, nil
-	}
-
-	id, err := sgnr.Identify(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	pubkey, err := types.ParsePubKey(id)
-	if err != nil {
-		return nil, err
-	}
-
-	address := crypto.PubkeyToAddress(*pubkey)
-
-	return &instructions.CosignerFilterer{Address: address}, err
 }

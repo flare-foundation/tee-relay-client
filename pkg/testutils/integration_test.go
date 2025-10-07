@@ -27,7 +27,10 @@ func TestIntegration(t *testing.T) {
 
 	sgnr := signer.NewLocal(prv)
 
-	router := instructions.NewRouter(sgnr, nil, nil)
+	f, err := instructions.NewFilterer(false, sgnr)
+	require.NoError(t, err)
+
+	router := instructions.NewRouter(sgnr, nil, f)
 
 	eventsFile, err := os.ReadFile("./events.json")
 	require.NoError(t, err)
@@ -37,7 +40,7 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	in := make(chan []database.Log)
-	out := make(chan *instructions.Base)
+	out := make(chan *instructions.Base, 3)
 
 	instructions.Run(ctx, router, in, out)
 
@@ -45,6 +48,10 @@ func TestIntegration(t *testing.T) {
 
 	id0 := events[0].Topic2
 	id1 := events[1].Topic2
+
+	time.Sleep(10 * time.Millisecond)
+
+	require.Len(t, out, 2)
 
 	for range 2 {
 		select {
@@ -61,6 +68,40 @@ func TestIntegration(t *testing.T) {
 			t.Error("timed out")
 		}
 	}
+
+	cancel()
+}
+
+func TestIntegrationCosigner(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+
+	prv, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	sgnr := signer.NewLocal(prv)
+
+	f, err := instructions.NewFilterer(true, sgnr)
+	require.NoError(t, err)
+
+	router := instructions.NewRouter(sgnr, nil, f)
+
+	eventsFile, err := os.ReadFile("./events.json")
+	require.NoError(t, err)
+
+	events := []database.Log{}
+	err = json.Unmarshal(eventsFile, &events)
+	require.NoError(t, err)
+
+	in := make(chan []database.Log, 10)
+	out := make(chan *instructions.Base, 10)
+
+	instructions.Run(ctx, router, in, out)
+
+	in <- events
+
+	time.Sleep(10 * time.Millisecond)
+
+	require.Len(t, out, 0)
 
 	cancel()
 }
