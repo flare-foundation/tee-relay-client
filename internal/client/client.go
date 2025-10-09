@@ -66,7 +66,7 @@ func setSigner(cfg *config.Signer) (signer.Signer, error) {
 			return nil, err
 		}
 
-		return signer.Remote{
+		return &signer.Remote{
 			Credentials: &cfg.Credentials,
 		}, nil
 	}

@@ -56,7 +56,7 @@ func TestPrepareInstruction(t *testing.T) {
 		Verifiers: map[string]config.Verifier{},
 	}
 
-	s := rsigner.Remote{
+	s := &rsigner.Remote{
 		Credentials: cred,
 	}
 

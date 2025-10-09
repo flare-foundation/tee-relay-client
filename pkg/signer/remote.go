@@ -25,7 +25,7 @@ const bytesPerSignature = 140   // TODO: make this more restrictive?
 type Remote struct{ *config.Credentials }
 
 // Sign sends hashes to signer and returns the corresponding signatures.
-func (r Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
+func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signer.SignBody{Hashes: hashes}
 
 	response, err := call.PostWithRetry[signer.SignBody, signer.SignedBody](ctx, r.URL+"/sign", r.APIKey(), req, call.Params{
@@ -49,7 +49,7 @@ func (r Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes
 }
 
 // Decrypt sends cipher to signer for decryption.
-func (r Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, error) {
+func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, error) {
 	req := signer.EncryptedBody{Cipher: cipher}
 
 	response, err := call.PostWithRetry[signer.EncryptedBody, signer.DecryptedBody](ctx, r.URL+"/decrypt", r.APIKey(), req, call.Params{
@@ -69,7 +69,7 @@ func (r Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, erro
 }
 
 // Identify retrieves identity of the signer.
-func (r Remote) Identify(ctx context.Context) (types.PublicKey, error) {
+func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	pk := types.PublicKey{}

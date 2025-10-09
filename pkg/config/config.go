@@ -51,14 +51,19 @@ type Credentials struct {
 	URL     string `toml:"url"`
 }
 
-func (c Credentials) Check() error {
+func (c *Credentials) Check() error {
 	if c.URL == "" {
 		return errors.New("URL not set")
 	}
+
+	if len(c.Key) != 0 && len(c.KeyName) == 0 {
+		return errors.New("unnamed api key")
+	}
+
 	return nil
 }
 
-func (c Credentials) APIKey() call.APIKey {
+func (c *Credentials) APIKey() call.APIKey {
 	return call.APIKey{
 		Name: c.KeyName,
 		Key:  c.Key,
