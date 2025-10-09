@@ -35,7 +35,7 @@ func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Byte
 		retry.Params{
 			MaxAttempts: 3,
 			Delay:       10 * time.Second,
-			Timeout:     time.Minute,
+			Timeout:     10 * time.Second,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("post call to %v rejected %v", r.URL, err)
@@ -59,7 +59,7 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 		retry.Params{
 			MaxAttempts: 3,
 			Delay:       10 * time.Second,
-			Timeout:     time.Minute,
+			Timeout:     10 * time.Second,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("post call to %v rejected %v", r.URL, err)
@@ -79,6 +79,7 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 		return pk, err
 	}
 	request.Header.Set(r.KeyName, r.Key)
+	request.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(request)
 	if err != nil {
@@ -88,6 +89,8 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	if resp.StatusCode != http.StatusOK {
 		return pk, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
 	}
+
+	defer resp.Body.Close() //nolint:errcheck
 
 	respLimited := &io.LimitedReader{R: resp.Body, N: 200}
 
