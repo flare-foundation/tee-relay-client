@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 
@@ -117,7 +118,10 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 		return err
 	}
 
-	pke := ecies.ImportECDSAPublic(teePK)
+	pke, err := signer.ECDSAPubKeyToECIES(teePK)
+	if err != nil {
+		return err
+	}
 	cipher, err := ecies.Encrypt(rand.Reader, pke, ptForTEE, nil, nil)
 	if err != nil {
 		return err
