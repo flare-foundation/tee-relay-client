@@ -13,7 +13,9 @@ import (
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	rsigner "github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/flare-foundation/tee-relay-client/pkg/testutils"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,10 +44,10 @@ func TestPrepareInstruction(t *testing.T) {
 		APIKeys:    []string{"123"},
 	}
 
-	signer, cred := testutils.NewTestSigner(cfg, prv)
+	signerServer, cred := testutils.NewTestSigner(cfg, prv)
 
 	go func() {
-		err := signer.Run(ctx)
+		err := signerServer.Run(ctx)
 		require.Error(t, err)
 	}()
 
@@ -54,7 +56,11 @@ func TestPrepareInstruction(t *testing.T) {
 		Verifiers: map[string]config.Verifier{},
 	}
 
-	router := instructions.NewRouter(cred, &ftdcCfg)
+	s := &rsigner.Remote{
+		Credentials: cred,
+	}
+
+	router := instructions.NewRouter(s, &ftdcCfg, nil)
 
 	out := make(chan *instructions.Base, 2)
 
@@ -86,7 +92,7 @@ func TestPrepareInstruction(t *testing.T) {
 		// chack that base is unchanged
 		require.Equal(t, base.GeneralData.TeeID, common.Address{})
 
-		err = signer.Shutdown(ctx)
+		err = signerServer.Shutdown(ctx)
 		require.NoError(t, err)
 
 		cancel()

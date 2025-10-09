@@ -12,10 +12,13 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
+	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
 var teeFilterer *teeextensionregistry.TeeExtensionRegistryFilterer
+
+type InstructionSentEvent = teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
 
 // init sets the fdcFilterer.
 func init() {
@@ -58,7 +61,7 @@ func Run(ctx context.Context, router *Router, in <-chan []database.Log, out chan
 }
 
 // parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database.
-func parseTeeInstructionsSent(i database.Log) (*teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent, error) {
+func parseTeeInstructionsSent(i database.Log) (*InstructionSentEvent, error) {
 	cl, err := events.ConvertDatabaseLogToChainLog(i)
 	if err != nil {
 		return nil, fmt.Errorf("converting instruction db log %v: %v", i, err)
@@ -91,6 +94,10 @@ func Handle(ctx context.Context, inLog database.Log, r *Router) error {
 	instr, err := ParseInstruction(inLog)
 	if err != nil {
 		return err
+	}
+
+	if r.Filterer != nil && r.Filter(instr.Event) {
+		return nil
 	}
 
 	processor, err := r.Route(instr)
@@ -157,7 +164,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 }
 
 // sign sets signatures of instructions for each Tee.
-func (ib *Base) Sign(ctx context.Context, s *Signer) error {
+func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
 	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
 
 	toSign, err := ib.hashesForSigning()
@@ -165,7 +172,7 @@ func (ib *Base) Sign(ctx context.Context, s *Signer) error {
 		return fmt.Errorf("preparing: %v", err)
 	}
 
-	signatures, err := s.FetchSignatures(ctx, toSign)
+	signatures, err := s.Sign(ctx, toSign)
 	if err != nil {
 		return fmt.Errorf("getting signatures for %v: %v", ib.GeneralData, err)
 	}

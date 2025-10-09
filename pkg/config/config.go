@@ -1,22 +1,31 @@
 package config
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 )
 
+const DefaultPrivateKeyVariable = "PRIVATE_KEY"
+
 type Config struct {
 	DB                   database.Config `toml:"db"`
 	Logging              logger.Config   `toml:"logger"`
 	TeeExtensionRegistry common.Address  `toml:"tee_extension_registry"`
-	Signer               Credentials     `toml:"signer"` // credentials for signer
-	FTDC                 FTDC            `toml:"ftdc"`
+
+	IsCosigner bool   `toml:"is_cosigner"`
+	Signer     Signer `toml:"signer"` // credentials for signer
+	FTDC       FTDC   `toml:"ftdc"`
 }
 
 func (c *Config) CheckAddress() error {
@@ -29,13 +38,32 @@ func (c *Config) CheckAddress() error {
 	return nil
 }
 
+type Signer struct {
+	Credentials
+
+	Local              bool   `toml:"local"`
+	PrivateKeyVariable string `toml:"private_key_variable"`
+}
+
 type Credentials struct {
 	KeyName string `toml:"key_name"`
 	Key     string `toml:"key"`
 	URL     string `toml:"url"`
 }
 
-func (c Credentials) APIKey() call.APIKey {
+func (c *Credentials) Check() error {
+	if c.URL == "" {
+		return errors.New("URL not set")
+	}
+
+	if len(c.Key) != 0 && len(c.KeyName) == 0 {
+		return errors.New("unnamed api key")
+	}
+
+	return nil
+}
+
+func (c *Credentials) APIKey() call.APIKey {
 	return call.APIKey{
 		Name: c.KeyName,
 		Key:  c.Key,
@@ -86,4 +114,42 @@ func toBytes32(s string) (common.Hash, error) {
 	copy(x[:], s)
 
 	return x, nil
+}
+
+// PrivateKeyFromEnv retrieves private key from environment variable
+// or from default environment variable if variableName is empty
+// It returns an error if the private key is not valid or the environment variable is not set.
+func PrivateKeyFromEnv(variableName string) (*ecdsa.PrivateKey, error) {
+	if len(variableName) == 0 {
+		variableName = DefaultPrivateKeyVariable
+	}
+	skStr := os.Getenv(variableName)
+
+	skStr, _ = strings.CutPrefix(skStr, "0x")
+	skStr, _ = strings.CutPrefix(skStr, "0X")
+
+	if len(skStr)%2 != 0 {
+		skStr = "0" + skStr
+	}
+
+	skB, err := hex.DecodeString(skStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid string for private key")
+	}
+
+	skB = prefixTo32Bytes(skB)
+
+	return crypto.ToECDSA(skB)
+}
+
+func prefixTo32Bytes(s []byte) []byte {
+	if len(s) >= 32 {
+		return s
+	}
+
+	rs := make([]byte, 32-len(s), 32)
+
+	rs = append(rs, s...)
+
+	return rs
 }

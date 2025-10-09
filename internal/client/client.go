@@ -9,6 +9,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/internal/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
 type Client struct {
@@ -33,11 +34,40 @@ func New(cfg config.Config) *Client {
 		logger.Panic("Could not connect to database:", err)
 	}
 
+	sgnr, err := setSigner(&cfg.Signer)
+	if err != nil {
+		logger.Panic("Could not set signer:", err)
+	}
+
+	filterer, err := instructions.NewFilterer(cfg.IsCosigner, sgnr)
+	if err != nil {
+		logger.Panic("Could not set filterer:", err)
+	}
+
 	c := collector.New(db, cfg.TeeExtensionRegistry)
-	r := instructions.NewRouter(&cfg.Signer, &cfg.FTDC)
+	r := instructions.NewRouter(sgnr, &cfg.FTDC, filterer)
 
 	return &Client{
 		collector: c,
 		router:    r,
+	}
+}
+
+func setSigner(cfg *config.Signer) (signer.Signer, error) {
+	if cfg.Local {
+		priv, err := config.PrivateKeyFromEnv(cfg.PrivateKeyVariable)
+		if err != nil {
+			return nil, err
+		}
+
+		return signer.NewLocal(priv), nil
+	} else {
+		if err := cfg.Check(); err != nil {
+			return nil, err
+		}
+
+		return &signer.Remote{
+			Credentials: &cfg.Credentials,
+		}, nil
 	}
 }

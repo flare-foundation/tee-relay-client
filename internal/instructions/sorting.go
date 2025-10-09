@@ -10,6 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
 // Instruction Class refers to an implementation of Instruction interface.
@@ -32,14 +33,18 @@ type Router struct {
 	ftdcProcessors  map[[64]byte]*FTDCProcessor
 	ftdcHandler     *FTDCHandler
 	backupProcessor *BackupProcessor
+
+	Filterer
 }
 
 // NewRouter assembles Router from configs.
-func NewRouter(sigCfg *config.Credentials, ftdcCfg *config.FTDC) *Router {
+func NewRouter(signer signer.Signer, ftdcCfg *config.FTDC, filterer Filterer) *Router {
 	r := new(Router)
 
+	r.Filterer = filterer
+
 	r.baseProcessor = &BaseProcessor{
-		signer: &Signer{sigCfg},
+		signer: signer,
 	}
 
 	r.backupProcessor = &BackupProcessor{r.baseProcessor}
