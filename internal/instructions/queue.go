@@ -1,19 +1,18 @@
 package instructions
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+
+	"github.com/flare-foundation/tee-node/pkg/ftdc"
 )
 
 // Weight for ordering of the FTDC queues.
@@ -76,7 +75,7 @@ func (h *FTDCHandler) Handle(ctx context.Context, ib *Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, err := hashFTDCMessage(fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
+	hashToBeSigned, _, _, err := ftdc.HashMessage(fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing ftdc message: %w", err)
 	}
@@ -118,41 +117,4 @@ func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
 			q.Dequeue(ctx, h.Handle, nil)
 		}
 	}()
-}
-
-// hashFTDCMessage is here temporarily.
-func hashFTDCMessage(req connector.IFtdcHubFtdcAttestationRequest, responseBody []byte, cosigners []common.Address, cosignersThreshold uint64, timestamp uint64) (common.Hash, error) {
-	header := connector.IFtdcHubFtdcResponseHeader{
-		AttestationType:    req.Header.AttestationType,
-		SourceId:           req.Header.SourceId,
-		ThresholdBIPS:      req.Header.ThresholdBIPS,
-		Cosigners:          cosigners,
-		CosignersThreshold: cosignersThreshold,
-		Timestamp:          timestamp,
-	}
-
-	encHeader, err := EncodeFTDCResponse(header)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	headerHash := crypto.Keccak256Hash(encHeader)
-	reqBodyHash := crypto.Keccak256Hash(req.RequestBody)
-	resBodyHash := crypto.Keccak256Hash(responseBody)
-
-	msgHash := crypto.Keccak256Hash(headerHash[:], reqBodyHash[:], resBodyHash[:])
-
-	tempBuffer := bytes.NewBuffer(nil)
-
-	tempBuffer.WriteByte(1)           // 1 byte (protocolId=1)
-	tempBuffer.Write(make([]byte, 5)) // 4 bytes (votingRoundId=0), 1 byte (isSecureRandom=false)
-	tempBuffer.Write(msgHash[:])      // Type (1 byte)
-
-	hashToBeSigned := crypto.Keccak256Hash(tempBuffer.Bytes())
-
-	return hashToBeSigned, nil
-}
-
-func EncodeFTDCResponse(header connector.IFtdcHubFtdcResponseHeader) (hexutil.Bytes, error) {
-	return structs.Encode(connector.ResponseHeaderArg, &header)
 }

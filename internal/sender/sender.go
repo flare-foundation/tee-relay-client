@@ -2,7 +2,6 @@ package sender
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -100,12 +99,6 @@ func PrepareInstruction(ib instructions.Base, j int) (*instruction.Instruction, 
 	data.TeeID = ib.Tees[j].TeeId
 
 	url := ib.Tees[j].Url
-
-	challenge := common.Hash{}
-	_, err := rand.Read(challenge[:])
-	if err != nil {
-		return nil, "", err
-	}
 
 	instr := instruction.Instruction{
 		Data:      data,
