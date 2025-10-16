@@ -105,7 +105,6 @@ type Handler interface {
 }
 
 // ProcessOut spawns a go routine that dequeues and handles dequeues items.
-// TODO move this to common.
 func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
 	go func() {
 		for {

@@ -104,7 +104,7 @@ func JoinAttTypeAndSourceID(attType string, sourceID string) ([64]byte, error) {
 	return x, nil
 }
 
-// toBytes32 returns Solidity's bytes32(s) ([]byte(s) appended with zeros to length 32)
+// toBytes32 returns Solidity's bytes32(s) ([]byte(s) appended with zeros to length 32).
 // String s can be at most 32 characters long, otherwise an error is returned.
 func toBytes32(s string) (common.Hash, error) {
 	if len(s) > 32 {
@@ -117,7 +117,7 @@ func toBytes32(s string) (common.Hash, error) {
 }
 
 // PrivateKeyFromEnv retrieves private key from environment variable
-// or from default environment variable if variableName is empty
+// or from default environment variable if variableName is empty.
 // It returns an error if the private key is not valid or the environment variable is not set.
 func PrivateKeyFromEnv(variableName string) (*ecdsa.PrivateKey, error) {
 	if len(variableName) == 0 {
