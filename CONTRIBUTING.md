@@ -5,7 +5,7 @@ All contributions are welcome.
 
 ## Issues
 
-_Sensitive security-related issues should be reported to any of codeowners._
+_Sensitive security-related issues should be reported to any of [codeowners](CODEOWNERS)._
 
 To share ideas, considerations, or concerned open an issue.
 Before filing an issue make sure the issue has not been already raised.
