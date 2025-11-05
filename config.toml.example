@@ -1,5 +1,7 @@
 tee_extension_registry = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
+is_cosigner = false
+
 # C-chain indexer db
 [db]
 host = "localhost"
@@ -9,15 +11,18 @@ username = "root"
 password = "root"
 log_queries = false
 
+
 [logger]
 max_file_size = 10 # 10MB
 file = ""
-level = "DEBUG"
+level = "INFO"
 console = true
 
 
 # credentials for signer
 [signer]
+local = false
+private_key_variable = "PRIVATE_KEY"
 url = ""
 key_name = ""
 key = ""
@@ -29,15 +34,7 @@ max_workers = 50              # zero for unlimited
 max_attempts = 3
 time_off = "2s"
 
-
-[ftdc.queues.payment]
-max_dequeues_per_second = 100 # zero for unlimited
-max_workers = 50              # zero for unlimited
-max_attempts = 3
-time_off = "2s"
-
-
-[ftdc.queues.account]
+[ftdc.queues.pmw]
 max_dequeues_per_second = 100 # zero for unlimited
 max_workers = 50              # zero for unlimited
 max_attempts = 3
@@ -56,18 +53,16 @@ server.key = ""
 [ftdc.verifiers.payment]
 type = "PMWPaymentStatus"
 source = "XRP"
-queue = "payment"
+queue = "pmw"
 server.url = ""
 server.key_name = "X-API-KEY"
 server.key = ""
 
 
-
-
 [ftdc.verifiers.account]
 type = "PMWMultisigAccountConfigured"
 source = "XRP"
-queue = "account"
+queue = "pmw"
 server.url = ""
 server.key_name = "X-API-KEY"
 server.key = ""

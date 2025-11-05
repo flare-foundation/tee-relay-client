@@ -2,3 +2,5 @@
 
 # ENV file
 .env
+
+*.out

@@ -48,7 +48,10 @@ func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
 		MinSleepTime:       5 * time.Second,
 	}
 
-	database.WaitCIndexerToSync(ctx, c.DB, syncParams)
+	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.GetLogger())
+	if err != nil {
+		panic(err)
+	}
 
 	go instructionsListener(ctx, c.DB, c.teeExtensionRegistry, 2*time.Second, out) // todo interval length
 }
