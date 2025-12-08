@@ -21,6 +21,10 @@ linters:
     - unconvert
     - whitespace
 
+    - modernize
+    - thelper
+    - usestdlibvars
+
   settings:
     exhaustive:
       default-signifies-exhaustive: true
