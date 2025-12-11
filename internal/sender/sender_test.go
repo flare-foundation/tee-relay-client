@@ -10,7 +10,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/router"
+	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	rsigner "github.com/flare-foundation/tee-relay-client/pkg/signer"
@@ -60,13 +61,15 @@ func TestPrepareInstruction(t *testing.T) {
 		Credentials: cred,
 	}
 
-	router := instructions.NewRouter(s, &ftdcCfg, nil)
+	r, err := router.NewRouter(s, &ftdcCfg, nil)
+	require.NoError(t, err)
 
 	out := make(chan *instructions.Base, 2)
 
-	router.Start(ctx, out)
+	r.SetOut(out)
+	r.StartQueues(ctx)
 
-	err = instructions.Handle(ctx, event, router)
+	err = r.Handle(ctx, event)
 	require.NoError(t, err)
 
 	// instr.Dispatch(out)

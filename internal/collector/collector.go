@@ -11,6 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
+const startInterval = 100               // TODO: set it; indexing starts from the last block minus start interval
+const requestInterval = 2 * time.Second // TODO: set the frequency of database requests
+
 var TeeInstructionsSentSel common.Hash // set in init
 
 func init() {
@@ -40,7 +43,7 @@ func New(db *gorm.DB, teeExtensionRegistry common.Address) *Collector {
 }
 
 // Run waits for db to sync starts a goroutine in which collector listens to TeeInstructionsSent events and sends them to out channel.
-func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
+func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
 	syncParams := database.SyncParams{
 		Retries:            30,
 		OutOfSyncTolerance: 30 * time.Second,
@@ -50,10 +53,12 @@ func Run(ctx context.Context, c *Collector, out chan<- []database.Log) {
 
 	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.GetLogger())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	go instructionsListener(ctx, c.DB, c.teeExtensionRegistry, 2*time.Second, out) // todo interval length
+	go instructionsListener(ctx, c.DB, c.teeExtensionRegistry, requestInterval, out)
+
+	return nil
 }
 
 // instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by TeeExtensionRegistry smart contracts and pushes them on to the instructions instructions channel.
@@ -71,7 +76,7 @@ func instructionsListener(
 		logger.Panic("fetch initial state error:", err)
 	}
 
-	lastQueriedIndex := state.Index - 100 // TODO from where we start
+	lastQueriedIndex := max(0, state.Index-startInterval)
 
 	params := database.LogsParams{
 		Address: teeExtensionRegistry,

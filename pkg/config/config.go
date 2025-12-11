@@ -2,7 +2,6 @@ package config
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
@@ -38,6 +38,8 @@ func (c *Config) CheckAddress() error {
 	return nil
 }
 
+// Signer holds credentials for the signer.
+// If Local is true, privet key the set env variable is used for local signing.
 type Signer struct {
 	Credentials
 
@@ -51,6 +53,7 @@ type Credentials struct {
 	URL     string `toml:"url"`
 }
 
+// Check checks if the credentials are valid.
 func (c *Credentials) Check() error {
 	if c.URL == "" {
 		return errors.New("URL not set")
@@ -89,29 +92,17 @@ func (v *Verifier) AttTypeAndSourceID() ([64]byte, error) {
 func JoinAttTypeAndSourceID(attType string, sourceID string) ([64]byte, error) {
 	x := [64]byte{}
 
-	at, err := toBytes32(attType)
+	at, err := convert.StringToCommonHash(attType)
 	if err != nil {
 		return x, fmt.Errorf("att type: %v", err)
 	}
-	si, err := toBytes32(sourceID)
+	si, err := convert.StringToCommonHash(sourceID)
 	if err != nil {
 		return x, fmt.Errorf("source ID: %v", err)
 	}
 
 	copy(x[0:32], at.Bytes())
 	copy(x[32:], si.Bytes())
-
-	return x, nil
-}
-
-// toBytes32 returns Solidity's bytes32(s) ([]byte(s) appended with zeros to length 32).
-// String s can be at most 32 characters long, otherwise an error is returned.
-func toBytes32(s string) (common.Hash, error) {
-	if len(s) > 32 {
-		return common.Hash{}, fmt.Errorf("string %s too long. At most 32 characters allowed", s)
-	}
-	x := [32]byte{}
-	copy(x[:], s)
 
 	return x, nil
 }
@@ -123,33 +114,14 @@ func PrivateKeyFromEnv(variableName string) (*ecdsa.PrivateKey, error) {
 	if len(variableName) == 0 {
 		variableName = DefaultPrivateKeyVariable
 	}
-	skStr := os.Getenv(variableName)
+
+	skStr, exists := os.LookupEnv(variableName)
+	if !exists {
+		return nil, errors.New("private key not set")
+	}
 
 	skStr, _ = strings.CutPrefix(skStr, "0x")
 	skStr, _ = strings.CutPrefix(skStr, "0X")
 
-	if len(skStr)%2 != 0 {
-		skStr = "0" + skStr
-	}
-
-	skB, err := hex.DecodeString(skStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid string for private key")
-	}
-
-	skB = prefixTo32Bytes(skB)
-
-	return crypto.ToECDSA(skB)
-}
-
-func prefixTo32Bytes(s []byte) []byte {
-	if len(s) >= 32 {
-		return s
-	}
-
-	rs := make([]byte, 32-len(s), 32)
-
-	rs = append(rs, s...)
-
-	return rs
+	return crypto.HexToECDSA(skStr)
 }

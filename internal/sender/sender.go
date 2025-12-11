@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
-	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-proxy/pkg/instruction/voting"
+	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
@@ -52,27 +51,12 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 	}()
 }
 
-// todo get this from the node repo (or somewhere else).
-type SignedReceipt struct {
-	Receipt   Receipt       `json:"receipt"`
-	Signature hexutil.Bytes `json:"signature"`
-}
-
-type Receipt struct {
-	InstructionHash               common.Hash   `json:"instructionHash"`
-	Sequence                      uint64        `json:"sequence"`
-	Signature                     hexutil.Bytes `json:"signature"`
-	AdditionalVariableMessageHash common.Hash   `json:"additionalVariableMessageHash"`
-	Timestamp                     uint64        `json:"timestamp"`
-	VoteHash                      common.Hash   `json:"voteHash"`
-}
-
 // SendToTEE sends the instruction instruction endpoint of tee at url.
 func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) error {
 	urlEndpoint := url + "/instruction"
 
 	// todo handle response
-	res, err := call.PostWithRetry[instruction.Instruction, SignedReceipt](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
+	res, err := call.PostWithRetry[instruction.Instruction, voting.SignedReceipt](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
 	}, []int{},

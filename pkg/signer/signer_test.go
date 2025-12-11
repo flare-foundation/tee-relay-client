@@ -73,7 +73,8 @@ func TestRemote(t *testing.T) {
 	t.Run("decrypt", func(t *testing.T) {
 		plaintext := []byte("plaintextThatIsShort")
 
-		pke := ecies.ImportECDSAPublic(&prv.PublicKey)
+		pke, err := signer.ECDSAPubKeyToECIES(&prv.PublicKey)
+		require.NoError(t, err)
 
 		cipher, err := ecies.Encrypt(rand.Reader, pke, plaintext, nil, nil)
 		require.NoError(t, err)
@@ -125,7 +126,8 @@ func TestLocal(t *testing.T) {
 	t.Run("decrypt", func(t *testing.T) {
 		plaintext := []byte("plaintextThatIsShort")
 
-		pke := ecies.ImportECDSAPublic(&prv.PublicKey)
+		pke, err := signer.ECDSAPubKeyToECIES(&prv.PublicKey)
+		require.NoError(t, err)
 
 		cipher, err := ecies.Encrypt(rand.Reader, pke, plaintext, nil, nil)
 		require.NoError(t, err)

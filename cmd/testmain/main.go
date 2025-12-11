@@ -63,8 +63,14 @@ func main() {
 
 	go sigServer.ListenAndServe() //nolint:errcheck
 
-	cl := client.New(cfg)
-	cl.Run(ctx)
+	cl, err := client.New(cfg)
+	if err != nil {
+		logger.Panic(err)
+	}
+	err = cl.Run(ctx)
+	if err != nil {
+		logger.Panic(err)
+	}
 
 	select {
 	case sig := <-signalChan:
@@ -81,9 +87,8 @@ func privateKeyFromEnv(variableName string) (*ecdsa.PrivateKey, error) {
 	if len(variableName) == 0 {
 		variableName = "PRIVATE_KEY"
 	}
-	pkStr := os.Getenv(variableName)
-
-	if len(pkStr) == 0 {
+	pkStr, exists := os.LookupEnv(variableName)
+	if !exists {
 		return nil, errors.New("private key not set")
 	}
 

@@ -32,8 +32,15 @@ func main() {
 
 	logger.Set(cfg.Logging)
 
-	cl := client.New(cfg)
-	cl.Run(ctx)
+	cl, err := client.New(cfg)
+	if err != nil {
+		logger.Panic(err)
+	}
+
+	err = cl.Run(ctx)
+	if err != nil {
+		logger.Panic(err)
+	}
 
 	select {
 	case sig := <-signalChan:
