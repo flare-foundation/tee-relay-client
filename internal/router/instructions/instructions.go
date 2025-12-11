@@ -19,6 +19,12 @@ import (
 var teeFilterer *teeextensionregistry.TeeExtensionRegistryFilterer
 
 type InstructionSentEvent = teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
+type Base struct {
+	Event       *InstructionSentEvent
+	Tees        []teeextensionregistry.ITeeMachineRegistryTeeMachine
+	GeneralData instruction.Data // Data without TeeID
+	Signatures  []hexutil.Bytes
+}
 
 // init sets the fdcFilterer.
 func init() {
@@ -28,36 +34,6 @@ func init() {
 	if err != nil {
 		logger.Panic("cannot get tee instructions filterer:", err)
 	}
-}
-
-// Run starts a go routine in which events from in chanel are Handled and the results are passed to out channel.
-func Run(ctx context.Context, router *Router, in <-chan []database.Log, out chan<- *Base) {
-	router.Start(ctx, out)
-
-	go func() {
-		var instructionEvents []database.Log
-		var ok bool
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Infof("closing instructions Run: %v", ctx.Err())
-				return
-			case instructionEvents, ok = <-in:
-				if !ok {
-					logger.Infof("closing instructions Run: in channel closed")
-					return
-				}
-
-				for j := range instructionEvents {
-					err := Handle(ctx, instructionEvents[j], router)
-					if err != nil {
-						logger.Errorf("error handling instruction %s: %v", instructionEvents[j].Topic2, err)
-					}
-				}
-			}
-		}
-	}()
 }
 
 // parseTeeInstructionsSent tries to parse parseTeeInstructionsSent log as stored in the c-chain indexer database.
@@ -75,7 +51,7 @@ func parseTeeInstructionsSent(i database.Log) (*InstructionSentEvent, error) {
 	return is, nil
 }
 
-// ParseInstruction transforms database log to a designated implementation of Instruction interface.
+// ParseInstruction transforms database log to instruction Base.
 func ParseInstruction(il database.Log) (*Base, error) {
 	event, err := parseTeeInstructionsSent(il)
 	if err != nil {
@@ -89,43 +65,11 @@ func ParseInstruction(il database.Log) (*Base, error) {
 	return &ib, nil
 }
 
-// Handle parses, processes instruction log.
-func Handle(ctx context.Context, inLog database.Log, r *Router) error {
-	instr, err := ParseInstruction(inLog)
-	if err != nil {
-		return err
-	}
-
-	if r.Filterer != nil && r.Filter(instr.Event) {
-		return nil
-	}
-
-	processor, err := r.Route(instr)
-	if err != nil {
-		return fmt.Errorf("no processor for %v: %v", instr.Event.InstructionId, err)
-	}
-
-	go func() {
-		err := processor.Process(ctx, instr)
-		if err != nil {
-			logger.Errorf("processing instruction %s, %v", inLog.Topic2, err)
-		}
-	}()
-
-	return nil
-}
-
-type Base struct {
-	Event       *teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
-	Tees        []teeextensionregistry.ITeeMachineRegistryTeeMachine
-	GeneralData instruction.Data // Data without TeeID
-	Signatures  []hexutil.Bytes
-}
-
 // EventToData copies relevant fields from Event to GeneralData. Timestamp should be recovered from the block.
 //
-// TeeID has to be set later when preparing the instruction for specific Tee.
+// TeeID has to be set later when preparing the instruction for a specific Tee.
 // AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
+// A slice of tees without duplicates is made.
 func (ib *Base) EventToData(timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		DataFixed: instruction.DataFixed{
@@ -146,7 +90,7 @@ func (ib *Base) EventToData(timestamp uint64) {
 
 // HashesForSigning prepares hashes of instruction data that are to be signed.
 //
-// Place of the hash corresponds to the place of TeeMachine in event.
+// Place of the hash corresponds to the place of TeeMachine in event where duplicates are removed.
 func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	data := ib.GeneralData
 

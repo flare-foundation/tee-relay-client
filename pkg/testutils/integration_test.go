@@ -10,7 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/router"
+	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -27,10 +28,11 @@ func TestIntegration(t *testing.T) {
 
 	sgnr := signer.NewLocal(prv)
 
-	f, err := instructions.NewFilterer(false, sgnr)
+	f, err := router.NewFilterer(false, sgnr)
 	require.NoError(t, err)
 
-	router := instructions.NewRouter(sgnr, nil, f)
+	rtr, err := router.NewRouter(sgnr, nil, f)
+	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")
 	require.NoError(t, err)
@@ -42,7 +44,7 @@ func TestIntegration(t *testing.T) {
 	in := make(chan []database.Log)
 	out := make(chan *instructions.Base, 3)
 
-	instructions.Run(ctx, router, in, out)
+	rtr.Run(ctx, in, out)
 
 	in <- events
 
@@ -80,10 +82,11 @@ func TestIntegrationCosigner(t *testing.T) {
 
 	sgnr := signer.NewLocal(prv)
 
-	f, err := instructions.NewFilterer(true, sgnr)
+	f, err := router.NewFilterer(true, sgnr)
 	require.NoError(t, err)
 
-	router := instructions.NewRouter(sgnr, nil, f)
+	rtr, err := router.NewRouter(sgnr, nil, f)
+	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")
 	require.NoError(t, err)
@@ -95,7 +98,7 @@ func TestIntegrationCosigner(t *testing.T) {
 	in := make(chan []database.Log, 10)
 	out := make(chan *instructions.Base, 10)
 
-	instructions.Run(ctx, router, in, out)
+	rtr.Run(ctx, in, out)
 
 	in <- events
 

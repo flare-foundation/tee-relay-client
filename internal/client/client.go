@@ -2,11 +2,12 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/internal/collector"
-	"github.com/flare-foundation/tee-relay-client/internal/instructions"
+	"github.com/flare-foundation/tee-relay-client/internal/router"
+	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
@@ -14,43 +15,52 @@ import (
 
 type Client struct {
 	collector *collector.Collector
-	router    *instructions.Router
-}
-
-// Run starts collector, instruction processing, and sender.
-func (c Client) Run(ctx context.Context) {
-	cToR := make(chan []database.Log, 50)
-	rToS := make(chan *instructions.Base, 50)
-
-	collector.Run(ctx, c.collector, cToR)
-	instructions.Run(ctx, c.router, cToR, rToS)
-	sender.Run(ctx, rToS)
+	router    *router.Router
 }
 
 // New creates new Client from configs.
-func New(cfg config.Config) *Client {
+func New(cfg config.Config) (*Client, error) {
 	db, err := database.Connect(&cfg.DB)
 	if err != nil {
-		logger.Panic("Could not connect to database:", err)
+		return nil, fmt.Errorf("could not connect to database: %s", err)
 	}
 
 	sgnr, err := setSigner(&cfg.Signer)
 	if err != nil {
-		logger.Panic("Could not set signer:", err)
+		return nil, fmt.Errorf("could not set signer: %s", err)
 	}
 
-	filterer, err := instructions.NewFilterer(cfg.IsCosigner, sgnr)
+	filterer, err := router.NewFilterer(cfg.IsCosigner, sgnr)
 	if err != nil {
-		logger.Panic("Could not set filterer:", err)
+		return nil, fmt.Errorf("could not set filterer: %s", err)
 	}
 
 	c := collector.New(db, cfg.TeeExtensionRegistry)
-	r := instructions.NewRouter(sgnr, &cfg.FTDC, filterer)
+	r, err := router.NewRouter(sgnr, &cfg.FTDC, filterer)
+	if err != nil {
+		return nil, fmt.Errorf("could not create router: %s", err)
+	}
 
 	return &Client{
 		collector: c,
 		router:    r,
+	}, nil
+}
+
+// Run starts collector, instruction processing, and sender.
+func (c *Client) Run(ctx context.Context) error {
+	cToR := make(chan []database.Log, 50)
+	rToS := make(chan *instructions.Base, 50)
+
+	err := c.collector.Run(ctx, cToR)
+	if err != nil {
+		return err
 	}
+
+	c.router.Run(ctx, cToR, rToS)
+	sender.Run(ctx, rToS)
+
+	return nil
 }
 
 func setSigner(cfg *config.Signer) (signer.Signer, error) {

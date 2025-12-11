@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-node/pkg/types"
 )
 
@@ -17,7 +17,7 @@ type Local struct {
 	priv *ecdsa.PrivateKey
 }
 
-// Sign computes textHash of each hash and returns slice of ecdsa signatures.
+// Sign computes textHash of each hash and returns a slice of ecdsa signatures.
 func (l *Local) Sign(_ context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	signatures := make([]hexutil.Bytes, len(hashes))
 
@@ -34,7 +34,10 @@ func (l *Local) Sign(_ context.Context, hashes []common.Hash) ([]hexutil.Bytes, 
 
 // Decrypt decrypts the cipher.
 func (l *Local) Decrypt(_ context.Context, cipher []byte) (hexutil.Bytes, error) {
-	privKeyDecryption := ecies.ImportECDSA(l.priv)
+	privKeyDecryption, err := signer.ECDSAPrivKeyToECIES(l.priv)
+	if err != nil {
+		return nil, err
+	}
 	plainText, err := privKeyDecryption.Decrypt(cipher, nil, nil)
 	if err != nil {
 		return nil, err

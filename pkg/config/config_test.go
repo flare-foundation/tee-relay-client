@@ -1,8 +1,10 @@
 package config
 
 import (
-	"strings"
+	"encoding/hex"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/stretchr/testify/require"
@@ -16,51 +18,107 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestToBytes32(t *testing.T) {
+func TestPrivateKeyFromEnv(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	keyHex := hex.EncodeToString(crypto.FromECDSA(key))
+
 	tests := []struct {
-		in  string
-		err bool
+		name         string
+		variableName string
+		envVarToSet  string
+		envValue     string
+		fail         bool
 	}{
 		{
-			in:  "",
-			err: false,
+			name:         "valid key with specific env var",
+			variableName: "TEST_PK",
+			envVarToSet:  "TEST_PK",
+			envValue:     keyHex,
+			fail:         false,
 		},
 		{
-			in:  " x ",
-			err: false,
+			name:         "valid key with 0x prefix",
+			variableName: "TEST_PK_0X",
+			envVarToSet:  "TEST_PK_0X",
+			envValue:     "0x" + keyHex,
+			fail:         false,
 		},
 		{
-			in:  "12 \n",
-			err: false,
+			name:         "valid key with 0X prefix",
+			variableName: "TEST_PK_0X_CAPS",
+			envVarToSet:  "TEST_PK_0X_CAPS",
+			envValue:     "0X" + keyHex,
+			fail:         false,
 		},
 		{
-			in:  "REG",
-			err: false,
+			name:         "empty variable name uses default",
+			variableName: "",
+			envVarToSet:  DefaultPrivateKeyVariable,
+			envValue:     keyHex,
+			fail:         false,
 		},
 		{
-			in:  "TO_PAUSE_FOR_UPGRADE",
-			err: false,
+			name:         "not set",
+			variableName: "UNSET_VAR",
+			fail:         true,
 		},
 		{
-			in:  strings.Repeat("a", 33),
-			err: true,
+			name:         "too short odd",
+			variableName: "INVALID_KEY_VAR",
+			envVarToSet:  "INVALID_KEY_VAR",
+			envValue:     "123",
+			fail:         true,
+		},
+		{
+			name:         "too short even",
+			variableName: "INVALID_KEY_VAR",
+			envVarToSet:  "INVALID_KEY_VAR",
+			envValue:     "1231",
+			fail:         true,
+		},
+		{
+			name:         "too short even prefixed",
+			variableName: "INVALID_KEY_VAR",
+			envVarToSet:  "INVALID_KEY_VAR",
+			envValue:     "0x1231",
+			fail:         true,
+		},
+		{
+			name:         "too long odd",
+			variableName: "INVALID_KEY_VAR",
+			envVarToSet:  "INVALID_KEY_VAR",
+			envValue:     "0x" + keyHex + "123",
+			fail:         true,
+		},
+		{
+			name:         "too long even",
+			variableName: "INVALID_KEY_VAR",
+			envVarToSet:  "INVALID_KEY_VAR",
+			envValue:     "0x" + keyHex + "1234",
+			fail:         true,
+		},
+		{
+			name:         "not hex",
+			variableName: "INVALID_KEY_VAR",
+			envVarToSet:  "INVALID_KEY_VAR",
+			envValue:     "not-a-hex-key",
+			fail:         true,
 		},
 	}
 
-	for _, test := range tests {
-		out, err := toBytes32(test.in)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envVarToSet != "" {
+				t.Setenv(tt.envVarToSet, tt.envValue)
+			}
 
-		if test.err {
-			require.Error(t, err, test.in)
-		} else {
-			wordEnd := len(test.in)
-			word := out[0:wordEnd]
-			rest := out[wordEnd:]
-			restExpected := make([]byte, 32-wordEnd)
-
-			require.NoError(t, err, test.in)
-			require.Equal(t, []byte(test.in), word, test.in)
-			require.Equal(t, restExpected, rest, test.in)
-		}
+			pk, err := PrivateKeyFromEnv(tt.variableName)
+			require.Equal(t, tt.fail, err != nil)
+			if !tt.fail {
+				require.NotNil(t, pk)
+				require.Equal(t, key, pk)
+			}
+		})
 	}
 }

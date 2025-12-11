@@ -1,8 +1,7 @@
-package instructions
+package processors
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -12,54 +11,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
-
-// Processor defines the interface for processing instructions.
-// Implementations should handle the logic for processing of a Base instruction.
-type Processor interface {
-	Process(context.Context, *Base) error
-}
-
-// BaseProcessor provides common logic for instruction processing, including signing and out channel for processed instructions.
-type BaseProcessor struct {
-	// signer is used for signing instructions.
-	signer signer.Signer
-	// out is the channel to send processed instructions.
-	out chan<- *Base
-}
-
-// Process signs the instruction and sends it to the output channel.
-func (b *BaseProcessor) Process(ctx context.Context, ib *Base) error {
-	err := ib.Sign(ctx, b.signer)
-	if err != nil {
-		return fmt.Errorf("signing: %v", err)
-	}
-
-	select {
-	case b.out <- ib:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// FTDCProcessor processes FTDC instructions by adding them to a queue for the designated verifier.
-type FTDCProcessor struct {
-	q *FTDCQueue
-}
-
-// Responder provides attestation responses for attestation requests.
-// Response returns the attestation response bytes, a success flag, and an error.
-type Responder interface {
-	Response(context.Context, connector.IFtdcHubFtdcAttestationRequest) ([]byte, bool, error)
-}
-
-// Process adds the instruction to the FTDC queue with the current timestamp as weight.
-func (f *FTDCProcessor) Process(ctx context.Context, ib *Base) error {
-	f.q.Add(ib, Weight{time.Now()})
-	return nil
-}
 
 // Verifier holds credentials for the verifier server and implements the Responder interface.
 type Verifier struct {
@@ -68,8 +20,8 @@ type Verifier struct {
 
 // VerifierResponse contains the body of the attestation response.
 type VerifierResponse struct {
-	// ResponseBody is the body of the attestation response.
-	ResponseBody hexutil.Bytes
+	ResponseBody hexutil.Bytes // ResponseBody is the body of the attestation response.
+
 }
 
 // VerifierRequest is a request sent to the verifier server.

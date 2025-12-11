@@ -1,4 +1,4 @@
-package instructions
+package processors
 
 import (
 	"context"
@@ -19,23 +19,28 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
+	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
 )
 
-type BackupProcessor struct {
-	base *BaseProcessor
+type Backup struct {
+	base *Base
 }
 
 const sizeLimit = 500 << 10    // 500 Kib
 const errorSizeLimit = 1 << 10 // 1 Kib
 
+func NewBackup(base *Base) *Backup {
+	return &Backup{base}
+}
+
 // Process handles the backup restore flow for a TEE wallet.
 // It fetches backup data, decodes and decrypts it, prepares the message for TEE,
 // encrypts it for the TEE node, signs the message, and sends it to the output channel.
-func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
+func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 	fullRequest, err := structs.Decode[wallet.ITeeWalletBackupManagerKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
 
 	if err != nil {
@@ -143,7 +148,7 @@ func (b *BackupProcessor) Process(ctx context.Context, ib *Base) error {
 }
 
 // decryptKeySplit decrypts a KeySplit from the provided cipher.
-func (b *BackupProcessor) decryptKeySplit(ctx context.Context, cipher []byte) (backup.KeySplit, error) {
+func (b *Backup) decryptKeySplit(ctx context.Context, cipher []byte) (backup.KeySplit, error) {
 	var keySplit backup.KeySplit
 
 	plaintext, err := b.base.signer.Decrypt(ctx, cipher)
@@ -169,7 +174,7 @@ func (b *BackupProcessor) decryptKeySplit(ctx context.Context, cipher []byte) (b
 // If the public key is both among the provider and admin owners, it returns marshaled array of both split.
 // If the public key is only among one of them, it returns the decrypted split directly.
 // If the public key is not found in either, it returns nil which indicates there is nothing to send.
-func (b *BackupProcessor) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk *types.PublicKey) ([]byte, error) {
+func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk *types.PublicKey) ([]byte, error) {
 	index := slices.Index(wb.ProviderEncryptedParts.OwnersPublicKeys, *pk)
 	indexAdmin := slices.Index(wb.AdminEncryptedParts.OwnersPublicKeys, *pk)
 

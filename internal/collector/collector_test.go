@@ -78,21 +78,21 @@ func TestCollector(t *testing.T) {
 	db.Create(&requestLog1)
 	db.Create(&requestLog2)
 
-	collector.Run(ctx, c, out)
+	err = c.Run(ctx, out)
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
 
-	wg.Add(2)
-	go func() {
+	wg.Go(func() {
 		select {
 		case logs := <-out:
 			require.Len(t, logs, 2)
 		case <-ctx.Done():
 			require.NoError(t, ctx.Err())
 		}
-	}()
+	})
 
-	time.Sleep(3 * time.Second)
+	wg.Wait()
 
 	requestLog3 := database.Log{
 		Address:         strings.ToLower(ti.String()[2:]),

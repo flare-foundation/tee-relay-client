@@ -1,4 +1,4 @@
-package instructions
+package router
 
 import (
 	"math/big"
@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +26,7 @@ func TestFilterer(t *testing.T) {
 
 	ls := signer.NewLocal(priv)
 
-	evenPass := InstructionSentEvent{
+	eventPass := instructions.InstructionSentEvent{
 		ExtensionId:        &big.Int{},
 		InstructionId:      [32]byte{},
 		RewardEpochId:      0,
@@ -39,7 +40,7 @@ func TestFilterer(t *testing.T) {
 		Raw:                types.Log{},
 	}
 
-	event := InstructionSentEvent{
+	event := instructions.InstructionSentEvent{
 		ExtensionId:        &big.Int{},
 		InstructionId:      [32]byte{},
 		RewardEpochId:      0,
@@ -57,7 +58,7 @@ func TestFilterer(t *testing.T) {
 		f, err := NewFilterer(true, ls)
 		require.NoError(t, err)
 
-		pass := f.Filter(&evenPass)
+		pass := f.Filter(&eventPass)
 		require.False(t, pass)
 
 		nopass := f.Filter(&event)
@@ -68,7 +69,7 @@ func TestFilterer(t *testing.T) {
 		f, err := NewFilterer(false, ls)
 		require.NoError(t, err)
 
-		pass := f.Filter(&evenPass)
+		pass := f.Filter(&eventPass)
 		require.False(t, pass)
 
 		nopass := f.Filter(&event)
