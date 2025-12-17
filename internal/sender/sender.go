@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
@@ -37,13 +38,13 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 				go func() {
 					msg, url, err := PrepareInstruction(*instr, j)
 					if err != nil {
-						logger.Errorf("preparing instruction %s for %d: %v", instr.Event.InstructionId, j, err)
+						logger.Errorf("preparing instruction %s for %d: %v", instructionOPLogging(instr.GeneralData), j, err)
 						return
 					}
 
 					err = SendToTEE(ctx, url, *msg)
 					if err != nil {
-						logger.Errorf("sending instruction %s for %s to %s: %v", msg.Data.InstructionID, msg.Data.TeeID, url, err)
+						logger.Errorf("sending instruction %s for %s to %s: %v", instructionOPLogging(msg.Data), msg.Data.TeeID, url, err)
 						return
 					}
 				}()
@@ -83,7 +84,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 		})
 
 	if err == nil {
-		logger.Debugf("delivered instruction %s to %s, res: %v", instr.Data.InstructionID.String(), url, res.Message)
+		logger.Debugf("delivered instruction %s to %s, res: %v", instructionOPLogging(instr.Data), url, res.Message)
 	}
 
 	return err
@@ -106,4 +107,8 @@ func PrepareInstruction(ib instructions.Base, j int) (*instruction.Instruction, 
 	}
 
 	return &instr, url, nil
+}
+
+func instructionOPLogging(data instruction.Data) string {
+	return fmt.Sprintf("id: %s opType: %s, opCommand: %s", data.InstructionID.String(), convert.CommonHashToString(data.OPType), convert.CommonHashToString(data.OPCommand))
 }
