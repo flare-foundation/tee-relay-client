@@ -6,7 +6,6 @@ require (
 	github.com/ethereum/go-ethereum v1.16.7
 	github.com/flare-foundation/go-flare-common v1.2.1-0.20251216163414-aec32d81603d
 	github.com/flare-foundation/tee-node v0.0.1
-	github.com/flare-foundation/tee-proxy v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
