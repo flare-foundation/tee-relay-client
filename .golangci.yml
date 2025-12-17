@@ -24,6 +24,10 @@ linters:
     - modernize
     - thelper
     - usestdlibvars
+    - usetesting
+    - unparam
+    - predeclared
+    - prealloc
 
   settings:
     exhaustive:

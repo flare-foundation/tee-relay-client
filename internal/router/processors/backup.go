@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -84,7 +85,7 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 		return err
 	}
 
-	err = checkConsistency(fullRequest, response.BackupID)
+	err = checkConsistency(fullRequest, response.BackupID, ib.Tees)
 	if err != nil {
 		return fmt.Errorf("backup package inconsistent with the request %w", err)
 	}
@@ -247,7 +248,7 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 }
 
 // checkConsistency checks that the fields in the restore request match those in the wallet backup ID.
-func checkConsistency(request wallet.ITeeWalletBackupManagerKeyDataProviderRestore, id wallets.WalletBackupID) error {
+func checkConsistency(request wallet.ITeeWalletBackupManagerKeyDataProviderRestore, id wallets.WalletBackupID, tees []teeextensionregistry.ITeeMachineRegistryTeeMachine) error {
 	pk, err := types.ParsePubKey(types.PublicKey{
 		X: request.TeePublicKey.X,
 		Y: request.TeePublicKey.Y,
@@ -260,8 +261,10 @@ func checkConsistency(request wallet.ITeeWalletBackupManagerKeyDataProviderResto
 	recoveredTeeID := crypto.PubkeyToAddress(*pk)
 
 	switch {
-	case recoveredTeeID != id.TeeID:
-		return errors.New("tee public key does not match the tee id in the wallet backup id")
+	case len(tees) != 1:
+		return errors.New("restore can only be requested on one tee per instruction")
+	case recoveredTeeID != tees[0].TeeId:
+		return errors.New("provided public key does not match the destination tee")
 	case request.BackupId.TeeId != id.TeeID:
 		return errors.New("teeID in the request does not match the teeID in the wallet backup id")
 	case common.Hash(request.BackupId.WalletId) != id.WalletID:
