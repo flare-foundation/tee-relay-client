@@ -68,6 +68,22 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 	return response.Message.Plain, nil
 }
 
+func idCallFactory(client *http.Client, req *http.Request) func() (io.ReadCloser, error) {
+	return func() (io.ReadCloser, error) {
+		resp, err := client.Do(req)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
+		}
+
+		return resp.Body, nil
+	}
+}
+
 // Identify retrieves identity of the signer.
 func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -81,18 +97,18 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	request.Header.Set(r.KeyName, r.Key)
 	request.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(request)
-	if err != nil {
-		return pk, err
+	re := retry.Execute(context.Background(), idCallFactory(client, request), retry.Params{
+		MaxAttempts: 3,
+		Delay:       5 * time.Second,
+		Timeout:     20 * time.Second,
+	})
+	if !re.Success {
+		return pk, re.Err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return pk, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
-	}
+	defer re.Value.Close() //nolint:errcheck
 
-	defer resp.Body.Close() //nolint:errcheck
-
-	respLimited := &io.LimitedReader{R: resp.Body, N: 200}
+	respLimited := &io.LimitedReader{R: re.Value, N: 200}
 
 	decoder := json.NewDecoder(respLimited)
 	decoder.DisallowUnknownFields()
