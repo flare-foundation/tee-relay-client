@@ -190,7 +190,7 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 			return nil, err
 		}
 
-		if !wb.WalletBackupID.Equal(&keySplits[0].WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+		if wb.WalletBackupID.Equal(&keySplits[0].WalletBackupID) != nil { //nolint:staticcheck // embedded field used to avoid ambiguity
 			return nil, errors.New("invalid wallet id in provider's key split")
 		}
 
@@ -199,7 +199,7 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 			return nil, err
 		}
 
-		if !wb.WalletBackupID.Equal(&keySplits[1].WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+		if wb.WalletBackupID.Equal(&keySplits[1].WalletBackupID) != nil { //nolint:staticcheck // embedded field used to avoid ambiguity
 			return nil, errors.New("invalid wallet id in admin's key split")
 		}
 
@@ -215,7 +215,7 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 			return nil, err
 		}
 
-		if !wb.WalletBackupID.Equal(&keySplit.WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+		if wb.WalletBackupID.Equal(&keySplit.WalletBackupID) != nil { //nolint:staticcheck // embedded field used to avoid ambiguity
 			return nil, errors.New("invalid wallet id in provider's key split")
 		}
 
@@ -231,7 +231,7 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 			return nil, err
 		}
 
-		if !wb.WalletBackupID.Equal(&keySplit.WalletBackupID) { //nolint:staticcheck // embedded field used to avoid ambiguity
+		if wb.WalletBackupID.Equal(&keySplit.WalletBackupID) != nil { //nolint:staticcheck // embedded field used to avoid ambiguity
 			return nil, errors.New("invalid wallet id in admin's key split")
 		}
 
