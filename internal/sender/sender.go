@@ -28,7 +28,6 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 			}
 
 			instr, ok := <-in
-
 			if !ok {
 				logger.Infof("closing sender Run: in channel closed")
 				return
