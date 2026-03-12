@@ -40,12 +40,12 @@ func init() {
 func parseTeeInstructionsSent(i database.Log) (*InstructionSentEvent, error) {
 	cl, err := events.ConvertDatabaseLogToChainLog(i)
 	if err != nil {
-		return nil, fmt.Errorf("converting instruction db log %v: %v", i, err)
+		return nil, fmt.Errorf("converting instruction db log %v: %w", i, err)
 	}
 
 	is, err := teeFilterer.ParseTeeInstructionsSent(*cl)
 	if err != nil {
-		return nil, fmt.Errorf("parsing instruction %v: %v", i, err)
+		return nil, fmt.Errorf("parsing instruction %v: %w", i, err)
 	}
 
 	return is, nil
@@ -101,7 +101,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 		data.TeeID = ib.Tees[j].TeeId
 		hashes[j], err = data.HashForSigning()
 		if err != nil {
-			return nil, fmt.Errorf("hash of %v; %v", data, err)
+			return nil, fmt.Errorf("hash of %v: %w", data, err)
 		}
 	}
 	return hashes, nil
@@ -113,12 +113,12 @@ func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
 
 	toSign, err := ib.hashesForSigning()
 	if err != nil {
-		return fmt.Errorf("preparing: %v", err)
+		return fmt.Errorf("preparing: %w", err)
 	}
 
 	signatures, err := s.Sign(ctx, toSign)
 	if err != nil {
-		return fmt.Errorf("getting signatures for %v: %v", ib.GeneralData, err)
+		return fmt.Errorf("getting signatures for %v: %w", ib.GeneralData, err)
 	}
 	ib.Signatures = signatures
 

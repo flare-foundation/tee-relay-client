@@ -170,10 +170,10 @@ The `/id` end point accepts empty body and returns coordinates EDCSA secp256k1 p
 
 Such server is implemented in TODO (go flare common)
 
-### FTDC
+### FDC2
 
-On of the protocols operated on Flare TEEs is FTDC (Flare TEE Data Connector).
-The instructions for FTDC have to be additionally processed by the relay clients - they have to be sent to designated verifier servers to get attestation responses.
+One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector).
+The instructions for FDC2 have to be additionally processed by the relay clients - they have to be sent to designated verifier servers to get attestation responses.
 
 For each supported pair of attestation type and source an access to a verifier should be configured.
 To avoid overloading the servers, each verifier has a queue.
@@ -184,7 +184,7 @@ A queue can be shared by more verifiers, which should be done if more verifiers 
 To configure a queue with name "serverX" add the following to the configurations:
 
 ```toml
-[ftdc.queues.exampleQueue]
+[fdc.queues.exampleQueue]
 max_dequeues_per_second = 100 # zero for unlimited
 max_workers = 50              # zero for unlimited
 max_attempts = 3
@@ -196,7 +196,7 @@ time_off = "2s"
 To configure a verifier for a pair of attestation type and source, and bind it to a queue add the following to the configuration:
 
 ```toml
-[ftdc.verifiers.availability]
+[fdc.verifiers.availability]
 type = "AttestationTypeExampleName"
 source = "ExampleSource"
 queue = "exampleQueue"

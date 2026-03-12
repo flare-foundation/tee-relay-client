@@ -43,21 +43,20 @@ func NewBackup(base *Base) *Backup {
 // encrypts it for the TEE node, signs the message, and sends it to the output channel.
 func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 	fullRequest, err := structs.Decode[wallet.ITeeWalletBackupManagerKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
-
 	if err != nil {
-		return err
+		return fmt.Errorf("decoding restore request: %w", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fullRequest.BackupUrl, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating backup request: %w", err)
 	}
 
 	resp, err := client.Do(request)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetching backup: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -75,40 +74,40 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 	}
 
 	respLimited := &io.LimitedReader{R: resp.Body, N: sizeLimit}
-	defer resp.Body.Close() //nolint:errcheck
+	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
 
 	decoder := json.NewDecoder(respLimited)
 	response := new(wallets.TEEBackupResponse)
 
 	err = decoder.Decode(response)
 	if err != nil {
-		return err
+		return fmt.Errorf("decoding backup response: %w", err)
 	}
 
 	err = checkConsistency(fullRequest, response.BackupID, ib.Tees)
 	if err != nil {
-		return fmt.Errorf("backup package inconsistent with the request %w", err)
+		return fmt.Errorf("backup package inconsistent with the request: %w", err)
 	}
 
 	var wBackup backup.WalletBackup
 	err = json.Unmarshal(response.WalletBackup, &wBackup)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshaling wallet backup: %w", err)
 	}
 
 	err = wBackup.Check()
 	if err != nil {
-		return err
+		return fmt.Errorf("checking wallet backup: %w", err)
 	}
 
 	ib.GeneralData.AdditionalFixedMessage, err = json.Marshal(wBackup.WalletBackupMetaData)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshaling wallet backup metadata: %w", err)
 	}
 
 	pk, err := b.base.signer.Identify(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("identifying signer: %w", err)
 	}
 
 	ptForTEE, err := b.plaintextForTEE(ctx, wBackup, &pk)
@@ -121,23 +120,23 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 		Y: fullRequest.TeePublicKey.Y,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing TEE public key: %w", err)
 	}
 
 	pke, err := signer.ECDSAPubKeyToECIES(teePK)
 	if err != nil {
-		return err
+		return fmt.Errorf("converting TEE public key to ECIES: %w", err)
 	}
 	cipher, err := ecies.Encrypt(rand.Reader, pke, ptForTEE, nil, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("encrypting for TEE: %w", err)
 	}
 
 	ib.GeneralData.AdditionalVariableMessage = cipher
 
 	err = ib.Sign(ctx, b.base.signer)
 	if err != nil {
-		return fmt.Errorf("signing: %v", err)
+		return fmt.Errorf("signing: %w", err)
 	}
 
 	select {

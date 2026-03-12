@@ -9,7 +9,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 )
 
-// Weight for ordering of the FTDC queues.
+// Weight for ordering of the FDC queues.
 //
 // An item has higher priority if it has arrived earlier.
 type Weight struct{ time.Time }
@@ -23,15 +23,15 @@ func (w Weight) Less(t Weight) bool {
 	return t.Before(w.Time)
 }
 
-type FTDCQueue struct {
+type FDCQueue struct {
 	*priority.PriorityQueue[*instructions.Base, Weight]
 }
 
-// NewQueue creates a FTDC queue.
-func NewQueue(params priority.Params, name string) *FTDCQueue {
+// NewQueue creates a FDC queue.
+func NewQueue(params priority.Params, name string) *FDCQueue {
 	queue := priority.New[*instructions.Base, Weight](params, name)
 
-	return &FTDCQueue{&queue}
+	return &FDCQueue{&queue}
 }
 
 type Handler interface {
@@ -39,7 +39,7 @@ type Handler interface {
 }
 
 // ProcessOut spawns a go routine that dequeues and handles dequeues items.
-func (q *FTDCQueue) ProcessOut(ctx context.Context, h Handler) {
+func (q *FDCQueue) ProcessOut(ctx context.Context, h Handler) {
 	go func() {
 		for {
 			if err := ctx.Err(); err != nil {

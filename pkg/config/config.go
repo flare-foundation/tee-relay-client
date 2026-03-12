@@ -25,7 +25,7 @@ type Config struct {
 
 	IsCosigner bool   `toml:"is_cosigner"`
 	Signer     Signer `toml:"signer"` // credentials for signer
-	FTDC       FTDC   `toml:"ftdc"`
+	FDC        FDC    `toml:"fdc"`
 }
 
 func (c *Config) CheckAddress() error {
@@ -73,7 +73,7 @@ func (c *Credentials) APIKey() call.APIKey {
 	}
 }
 
-type FTDC struct {
+type FDC struct {
 	Queues    map[string]priority.Params `toml:"queues"`
 	Verifiers map[string]Verifier        `toml:"verifiers"`
 }
@@ -94,11 +94,11 @@ func JoinAttTypeAndSourceID(attType string, sourceID string) ([64]byte, error) {
 
 	at, err := convert.StringToCommonHash(attType)
 	if err != nil {
-		return x, fmt.Errorf("att type: %v", err)
+		return x, fmt.Errorf("att type: %w", err)
 	}
 	si, err := convert.StringToCommonHash(sourceID)
 	if err != nil {
-		return x, fmt.Errorf("source ID: %v", err)
+		return x, fmt.Errorf("source ID: %w", err)
 	}
 
 	copy(x[0:32], at.Bytes())
