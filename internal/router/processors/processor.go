@@ -40,7 +40,7 @@ func (b *Base) Process(ctx context.Context, ib *instructions.Base) error {
 
 	err := ib.Sign(ctx, b.signer)
 	if err != nil {
-		return fmt.Errorf("signing: %v", err)
+		return fmt.Errorf("signing: %w", err)
 	}
 
 	select {

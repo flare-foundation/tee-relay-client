@@ -18,10 +18,11 @@ type Verifier struct {
 	*config.Credentials
 }
 
+var _ Responder = &Verifier{}
+
 // VerifierResponse contains the body of the attestation response.
 type VerifierResponse struct {
 	ResponseBody hexutil.Bytes // ResponseBody is the body of the attestation response.
-
 }
 
 // VerifierRequest is a request sent to the verifier server.
@@ -33,7 +34,7 @@ type VerifierRequest struct {
 
 // Response sends an attestation request to the verifier server and returns the response.
 // It performs retries on failure and returns the response bytes, a success flag, and an error.
-func (v *Verifier) Response(ctx context.Context, request connector.IFtdcHubFtdcAttestationRequest) ([]byte, bool, error) {
+func (v *Verifier) Response(ctx context.Context, request connector.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error) {
 	verifierRequest := VerifierRequest{
 		AttestationType: request.Header.AttestationType,
 		SourceID:        request.Header.SourceId,
@@ -41,19 +42,23 @@ func (v *Verifier) Response(ctx context.Context, request connector.IFtdcHubFtdcA
 	}
 	res, err := call.PostWithRetry[VerifierRequest, VerifierResponse](ctx, v.URL, v.APIKey(), verifierRequest, call.Params{
 		Timeout:         10 * time.Second,
-		MaxResponseSize: 1000000000, // todo: set a reasonable value
+		MaxResponseSize: 1 << 20, // 1 MiB
 	},
-		[]int{},
+		[]int{
+			http.StatusBadRequest,
+			http.StatusUnauthorized,
+			http.StatusUnprocessableEntity,
+		},
 		retry.Params{
 			MaxAttempts: 3,
-			Delay:       2 * time.Second,
-			Timeout:     10 * time.Second,
+			Delay:       5 * time.Second,
+			Timeout:     20 * time.Second,
 		})
 
-	if err != nil {
+	if err != nil { // unexpected error in the process of verification
 		return nil, false, err
 	}
-	if res.Status != http.StatusOK {
+	if res.Status != http.StatusOK { // in this case the verifier rejected the request as unconformable
 		return nil, false, nil
 	}
 

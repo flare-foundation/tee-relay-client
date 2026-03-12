@@ -28,20 +28,20 @@ key_name = ""
 key = ""
 
 
-[ftdc.queues.availability]
+[fdc.queues.availability]
 max_dequeues_per_second = 100 # zero for unlimited
 max_workers = 50              # zero for unlimited
 max_attempts = 3
 time_off = "2s"
 
-[ftdc.queues.pmw]
+[fdc.queues.pmw]
 max_dequeues_per_second = 100 # zero for unlimited
 max_workers = 50              # zero for unlimited
 max_attempts = 3
 time_off = "2s"
 
 
-[ftdc.verifiers.availability]
+[fdc.verifiers.availability]
 type = "TeeAvailabilityCheck"
 source = "TEE"
 queue = "availability"
@@ -50,7 +50,7 @@ server.key_name = "X-API-KEY"
 server.key = ""
 
 
-[ftdc.verifiers.payment]
+[fdc.verifiers.payment]
 type = "PMWPaymentStatus"
 source = "XRP"
 queue = "pmw"
@@ -59,7 +59,7 @@ server.key_name = "X-API-KEY"
 server.key = ""
 
 
-[ftdc.verifiers.account]
+[fdc.verifiers.account]
 type = "PMWMultisigAccountConfigured"
 source = "XRP"
 queue = "pmw"

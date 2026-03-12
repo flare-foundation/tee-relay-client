@@ -70,6 +70,7 @@ func instructionsListener(
 	out chan<- []database.Log,
 ) {
 	trigger := time.NewTicker(listenerInterval)
+	defer trigger.Stop()
 
 	state, err := database.FetchState(ctx, db, nil)
 	if err != nil {

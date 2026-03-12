@@ -20,7 +20,7 @@ type InstructionClass int
 const (
 	Invalid InstructionClass = iota
 	Plain
-	FTDC
+	FDC
 	Backup
 )
 
@@ -29,12 +29,12 @@ type Router struct {
 	Filterer
 
 	baseProcessor   *processors.Base
-	ftdcProcessor   *processors.FTDC
+	fdcProcessor    *processors.FDC
 	backupProcessor *processors.Backup
 }
 
 // NewRouter assembles Router from configs.
-func NewRouter(signer signer.Signer, ftdcCfg *config.FTDC, filterer Filterer) (*Router, error) {
+func NewRouter(signer signer.Signer, fdcCfg *config.FDC, filterer Filterer) (*Router, error) {
 	r := new(Router)
 
 	r.Filterer = filterer
@@ -42,7 +42,7 @@ func NewRouter(signer signer.Signer, ftdcCfg *config.FTDC, filterer Filterer) (*
 	r.backupProcessor = processors.NewBackup(r.baseProcessor)
 
 	var err error
-	r.ftdcProcessor, err = processors.NewFTDC(ftdcCfg, r.baseProcessor)
+	r.fdcProcessor, err = processors.NewFDC(fdcCfg, r.baseProcessor)
 	if err != nil {
 		return nil, err
 	}
@@ -55,10 +55,10 @@ func (r *Router) SetOut(out chan<- *instructions.Base) {
 	r.baseProcessor.SetOut(out)
 }
 
-// StartQueues initiates FTDC queues to process the inputs with the set verifiers and pass the result
+// StartQueues initiates FDC queues to process the inputs with the set verifiers and pass the result
 // to the base processor.
 func (r *Router) StartQueues(ctx context.Context) {
-	r.ftdcProcessor.StartQueues(ctx)
+	r.fdcProcessor.StartQueues(ctx)
 }
 
 // Run starts a go routine in which events from in chanel are Handled and the results are passed to out channel.
@@ -105,7 +105,7 @@ func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 
 	processor, err := r.Route(instr)
 	if err != nil {
-		return fmt.Errorf("no processor for %v: %v", instr.Event.InstructionId, err)
+		return fmt.Errorf("no processor for %v: %w", instr.Event.InstructionId, err)
 	}
 
 	go func() {
@@ -124,8 +124,8 @@ func (r *Router) Route(b *instructions.Base) (processors.Processor, error) {
 	switch ic {
 	case Plain:
 		return r.baseProcessor, nil
-	case FTDC: // currently only opCommand
-		return r.ftdcProcessor, nil
+	case FDC: // currently only opCommand
+		return r.fdcProcessor, nil
 	case Backup:
 		return r.backupProcessor, nil
 	case Invalid: // should never happen
@@ -140,8 +140,8 @@ func instClass(opType, opCommand common.Hash) InstructionClass {
 	c := op.HashToOPCommand(opCommand)
 
 	switch {
-	case t == op.FTDC && c == op.Prove:
-		return FTDC
+	case t == op.FDC2 && c == op.Prove:
+		return FDC
 	case t == op.Wallet && c == op.KeyDataProviderRestore:
 		return Backup
 	case op.IsValid(t, c):

@@ -24,6 +24,8 @@ const bytesPerSignature = 140   // TODO: make this more restrictive?
 // Signer holds credentials for the signer server.
 type Remote struct{ *config.Credentials }
 
+var _ Signer = &Remote{}
+
 // Sign sends hashes to signer and returns the corresponding signatures.
 func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signer.SignBody{Hashes: hashes}
@@ -38,7 +40,7 @@ func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Byte
 			Timeout:     10 * time.Second,
 		})
 	if err != nil {
-		return nil, fmt.Errorf("post call to %v rejected %v", r.URL, err)
+		return nil, fmt.Errorf("post call to %v rejected: %w", r.URL, err)
 	}
 
 	if len(hashes) != len(response.Message.Signatures) {
@@ -62,7 +64,7 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 			Timeout:     10 * time.Second,
 		})
 	if err != nil {
-		return nil, fmt.Errorf("post call to %v rejected %v", r.URL, err)
+		return nil, fmt.Errorf("post call to %v rejected: %w", r.URL, err)
 	}
 
 	return response.Message.Plain, nil
@@ -106,7 +108,7 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 		return pk, re.Err
 	}
 
-	defer re.Value.Close() //nolint:errcheck
+	defer re.Value.Close() //nolint:errcheck // closing response body, error is not actionable
 
 	respLimited := &io.LimitedReader{R: re.Value, N: 200}
 

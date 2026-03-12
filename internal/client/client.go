@@ -22,23 +22,23 @@ type Client struct {
 func New(cfg config.Config) (*Client, error) {
 	db, err := database.Connect(&cfg.DB)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to database: %s", err)
+		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
 
 	sgnr, err := setSigner(&cfg.Signer)
 	if err != nil {
-		return nil, fmt.Errorf("could not set signer: %s", err)
+		return nil, fmt.Errorf("could not set signer: %w", err)
 	}
 
 	filterer, err := router.NewFilterer(cfg.IsCosigner, sgnr)
 	if err != nil {
-		return nil, fmt.Errorf("could not set filterer: %s", err)
+		return nil, fmt.Errorf("could not set filterer: %w", err)
 	}
 
 	c := collector.New(db, cfg.TeeExtensionRegistry)
-	r, err := router.NewRouter(sgnr, &cfg.FTDC, filterer)
+	r, err := router.NewRouter(sgnr, &cfg.FDC, filterer)
 	if err != nil {
-		return nil, fmt.Errorf("could not create router: %s", err)
+		return nil, fmt.Errorf("could not create router: %w", err)
 	}
 
 	return &Client{
@@ -54,7 +54,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 	err := c.collector.Run(ctx, cToR)
 	if err != nil {
-		return err
+		return fmt.Errorf("starting collector: %w", err)
 	}
 
 	c.router.Run(ctx, cToR, rToS)

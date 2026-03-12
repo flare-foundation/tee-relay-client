@@ -18,12 +18,16 @@ type Filterer interface {
 // ProviderFilterer implements Filterer that lets through all the InstructionSent events.
 type ProviderFilterer struct{}
 
+var _ Filterer = &ProviderFilterer{}
+
 func (pf *ProviderFilterer) Filter(event *instructions.InstructionSentEvent) bool {
 	return false
 }
 
 // CosignerFilterer implements Filterer that lets through only the InstructionSent events that have the signer's address as a cosigner.
 type CosignerFilterer struct{ Address common.Address }
+
+var _ Filterer = &CosignerFilterer{}
 
 func (cf *CosignerFilterer) Filter(event *instructions.InstructionSentEvent) bool {
 	return !slices.Contains(event.Cosigners, cf.Address)

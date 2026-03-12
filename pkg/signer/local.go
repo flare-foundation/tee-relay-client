@@ -17,6 +17,8 @@ type Local struct {
 	priv *ecdsa.PrivateKey
 }
 
+var _ Signer = &Local{}
+
 // Sign computes textHash of each hash and returns a slice of ecdsa signatures.
 func (l *Local) Sign(_ context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	signatures := make([]hexutil.Bytes, len(hashes))
