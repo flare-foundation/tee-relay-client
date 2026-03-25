@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
@@ -80,7 +82,7 @@ func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 
 	queueName, exits := f.idToQueueName[id]
 	if !exits {
-		return fmt.Errorf("no queue for: %v", id)
+		return fmt.Errorf("no queue for: %s, %s", convert.CommonHashToString(common.BytesToHash(id[:32])), convert.CommonHashToString(common.BytesToHash(id[32:64])))
 	}
 
 	q, exits := f.queues[queueName]

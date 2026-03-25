@@ -76,7 +76,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, _, _, err := fdc.HashMessage(fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
+	hashToBeSigned, _, _, _, err := fdc.HashMessage(fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing fdc message: %w", err)
 	}
