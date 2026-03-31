@@ -19,10 +19,10 @@ const (
 func main() {
 	cfg, err := toml.Read[config.Config](configPath, true)
 	if err != nil {
-		logger.Panicf("cannot read configs: %s", err)
+		logger.Panicf("cannot read configs: %v", err)
 	}
 	if err := cfg.CheckAddress(); err != nil {
-		logger.Panicf("checking address %v", err)
+		logger.Panicf("checking address: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

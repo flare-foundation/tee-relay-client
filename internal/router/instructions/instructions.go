@@ -32,7 +32,7 @@ func init() {
 
 	teeFilterer, err = teeextensionregistry.NewTeeExtensionRegistryFilterer(common.Address{}, nil)
 	if err != nil {
-		logger.Panic("cannot get tee instructions filterer:", err)
+		panic("cannot get tee instructions filterer: " + err.Error())
 	}
 }
 

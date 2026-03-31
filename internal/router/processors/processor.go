@@ -2,6 +2,7 @@ package processors
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
@@ -35,7 +36,7 @@ func (b *Base) SetOut(out chan<- *instructions.Base) {
 // Process signs the instruction and sends it to the output channel.
 func (b *Base) Process(ctx context.Context, ib *instructions.Base) error {
 	if b.out == nil {
-		return fmt.Errorf("out chanel not set")
+		return errors.New("out channel not set")
 	}
 
 	err := ib.Sign(ctx, b.signer)

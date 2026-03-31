@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,12 +20,12 @@ var TeeInstructionsSentSel common.Hash // set in init
 func init() {
 	teeExtensionRegistryABI, err := teeextensionregistry.TeeExtensionRegistryMetaData.GetAbi()
 	if err != nil {
-		logger.Panicf("getting teeExtensionRegistryABI abi: %v", err)
+		panic("getting teeExtensionRegistryABI abi: " + err.Error())
 	}
 
 	event, exits := teeExtensionRegistryABI.Events["TeeInstructionsSent"]
 	if !exits {
-		logger.Panicf("invalid event TeeInstructionsSent")
+		panic("invalid event TeeInstructionsSent")
 	}
 
 	TeeInstructionsSentSel = event.ID
@@ -53,7 +54,7 @@ func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
 
 	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.GetLogger())
 	if err != nil {
-		return err
+		return fmt.Errorf("waiting for indexer to sync: %w", err)
 	}
 
 	go instructionsListener(ctx, c.DB, c.teeExtensionRegistry, requestInterval, out)
@@ -74,7 +75,7 @@ func instructionsListener(
 
 	state, err := database.FetchState(ctx, db, nil)
 	if err != nil {
-		logger.Panic("fetch initial state error:", err)
+		logger.Panicf("fetching initial state: %v", err)
 	}
 
 	lastQueriedIndex := max(0, state.Index-startInterval)
@@ -90,13 +91,13 @@ func instructionsListener(
 		select {
 		case <-trigger.C:
 		case <-ctx.Done():
-			logger.Info("instructionsListener exiting:", ctx.Err())
+			logger.Infof("instructionsListener exiting: %v", ctx.Err())
 			return
 		}
 
 		state, err = database.FetchState(ctx, db, nil)
 		if err != nil {
-			logger.Error("fetch state error:", err)
+			logger.Errorf("fetching state: %v", err)
 			continue
 		}
 
@@ -106,7 +107,7 @@ func instructionsListener(
 			ctx, db, params,
 		)
 		if err != nil {
-			logger.Error("fetch logs error:", err)
+			logger.Errorf("fetching logs: %v", err)
 			continue
 		}
 
@@ -116,7 +117,7 @@ func instructionsListener(
 			select {
 			case out <- logs:
 			case <-ctx.Done():
-				logger.Info("instructionsListener exiting:", ctx.Err())
+				logger.Infof("instructionsListener exiting: %v", ctx.Err())
 				return
 			}
 		}

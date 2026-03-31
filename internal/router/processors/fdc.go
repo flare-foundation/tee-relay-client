@@ -22,7 +22,7 @@ func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 	if cfg == nil {
 		handler, err := NewFDCHandler(base, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("creating FDC handler: %w", err)
 		}
 		return &FDC{
 			idToQueueName: make(map[[64]byte]string),
@@ -35,7 +35,7 @@ func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 
 	handler, err := NewFDCHandler(base, cfg.Verifiers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating FDC handler: %w", err)
 	}
 
 	for name := range cfg.Queues {
@@ -77,7 +77,7 @@ func (f *FDC) StartQueues(ctx context.Context) {
 func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 	id, err := AttTypeAndSourceIDBase(ib)
 	if err != nil {
-		return err
+		return fmt.Errorf("extracting attestation type and source ID: %w", err)
 	}
 
 	queueName, exits := f.idToQueueName[id]

@@ -67,13 +67,13 @@ func setSigner(cfg *config.Signer) (signer.Signer, error) {
 	if cfg.Local {
 		priv, err := config.PrivateKeyFromEnv(cfg.PrivateKeyVariable)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("loading private key from env: %w", err)
 		}
 
 		return signer.NewLocal(priv), nil
 	} else {
 		if err := cfg.Check(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("checking signer credentials: %w", err)
 		}
 
 		return &signer.Remote{

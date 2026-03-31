@@ -94,7 +94,7 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, r.URL+"/id", nil)
 	if err != nil {
-		return pk, err
+		return pk, fmt.Errorf("creating identify request: %w", err)
 	}
 	request.Header.Set(r.KeyName, r.Key)
 	request.Header.Set("Content-Type", "application/json")
@@ -117,7 +117,7 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 
 	err = decoder.Decode(&pk)
 	if err != nil {
-		return pk, err
+		return pk, fmt.Errorf("decoding identify response: %w", err)
 	}
 
 	return pk, nil

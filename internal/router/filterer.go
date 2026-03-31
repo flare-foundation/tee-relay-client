@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,12 +43,12 @@ func NewFilterer(isCosigner bool, sgnr signer.Signer) (Filterer, error) {
 
 	id, err := sgnr.Identify(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("identifying signer: %w", err)
 	}
 
 	pubkey, err := types.ParsePubKey(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing signer public key: %w", err)
 	}
 
 	address := crypto.PubkeyToAddress(*pubkey)
