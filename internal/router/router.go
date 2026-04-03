@@ -44,7 +44,7 @@ func NewRouter(signer signer.Signer, fdcCfg *config.FDC, filterer Filterer) (*Ro
 	var err error
 	r.fdcProcessor, err = processors.NewFDC(fdcCfg, r.baseProcessor)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating FDC processor: %w", err)
 	}
 
 	return r, nil
@@ -84,7 +84,7 @@ func (router *Router) Run(ctx context.Context, in <-chan []database.Log, out cha
 				for j := range instructionEvents {
 					err := router.Handle(ctx, instructionEvents[j])
 					if err != nil {
-						logger.Errorf("error handling instruction %s: %v", instructionEvents[j].Topic2, err)
+						logger.Errorf("handling instruction %s: %v", instructionEvents[j].Topic2, err)
 					}
 				}
 			}
@@ -96,7 +96,7 @@ func (router *Router) Run(ctx context.Context, in <-chan []database.Log, out cha
 func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 	instr, err := instructions.ParseInstruction(inLog)
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing instruction: %w", err)
 	}
 
 	if r.Filterer != nil && r.Filter(instr.Event) {

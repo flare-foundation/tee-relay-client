@@ -153,17 +153,17 @@ func (b *Backup) decryptKeySplit(ctx context.Context, cipher []byte) (backup.Key
 
 	plaintext, err := b.base.signer.Decrypt(ctx, cipher)
 	if err != nil {
-		return keySplit, err
+		return keySplit, fmt.Errorf("decrypting: %w", err)
 	}
 
 	err = json.Unmarshal(plaintext, &keySplit)
 	if err != nil {
-		return keySplit, err
+		return keySplit, fmt.Errorf("unmarshaling key split: %w", err)
 	}
 
 	err = keySplit.VerifySignature()
 	if err != nil {
-		return keySplit, err
+		return keySplit, fmt.Errorf("verifying key split signature: %w", err)
 	}
 
 	return keySplit, nil
@@ -254,7 +254,7 @@ func checkConsistency(request wallet.ITeeWalletBackupManagerKeyDataProviderResto
 	})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing TEE public key: %w", err)
 	}
 
 	recoveredTeeID := crypto.PubkeyToAddress(*pk)

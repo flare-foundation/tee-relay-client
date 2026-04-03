@@ -38,11 +38,11 @@ func (l *Local) Sign(_ context.Context, hashes []common.Hash) ([]hexutil.Bytes, 
 func (l *Local) Decrypt(_ context.Context, cipher []byte) (hexutil.Bytes, error) {
 	privKeyDecryption, err := signer.ECDSAPrivKeyToECIES(l.priv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("converting private key to ECIES: %w", err)
 	}
 	plainText, err := privKeyDecryption.Decrypt(cipher, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decrypting: %w", err)
 	}
 
 	return plainText, nil
