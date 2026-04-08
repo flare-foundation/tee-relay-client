@@ -2,7 +2,9 @@ package processors
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -67,11 +69,12 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	attResponse, success, err := v.Response(ctx, fullRequest)
 	if !success {
 		if err != nil {
-			logger.Debugf("verifier error for instruction %v: %v", ib.Event.InstructionId, err)
+			logger.Debugf("verifier error for instruction %s of type: %s, source: %s,  %v", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), err)
 			return fmt.Errorf("getting attestation response: %w", err)
 		}
 
-		logger.Debugf("verifier rejected request from instruction %v", ib.Event.InstructionId)
+		logger.Debugf("verifier rejected request from instruction %s of type: %s, source: %s,  %v", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), err)
+
 		return nil
 	}
 
