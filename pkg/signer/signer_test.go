@@ -41,7 +41,7 @@ func TestRemote(t *testing.T) {
 		cancel()
 	})
 
-	rs := Remote{cred}
+	rs := NewRemote(cred)
 
 	t.Run("identify", func(t *testing.T) {
 		id, err := rs.Identify(ctx)

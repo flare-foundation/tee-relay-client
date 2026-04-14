@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
-	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
@@ -22,12 +21,18 @@ const timeout = 5 * time.Second // maximal duration for the server to resolve th
 const bytesPerSignature = 140   // TODO: make this more restrictive?
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
-var safeTransport = safeurl.NewTransport()
-
-// Signer holds credentials for the signer server.
-type Remote struct{ *config.Credentials }
+// Remote holds credentials for the signer server.
+// The signer URL is operator-controlled config, so no SSRF protection is applied.
+type Remote struct {
+	*config.Credentials
+}
 
 var _ Signer = &Remote{}
+
+// NewRemote creates a Remote signer.
+func NewRemote(creds *config.Credentials) *Remote {
+	return &Remote{Credentials: creds}
+}
 
 // Sign sends hashes to signer and returns the corresponding signatures.
 func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
@@ -36,7 +41,6 @@ func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Byte
 	response, err := call.PostWithRetry[signer.SignBody, signer.SignedBody](ctx, r.URL+"/sign", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: 50 + int64(bytesPerSignature*len(hashes)),
-		Transport:       safeTransport,
 	}, []int{},
 		retry.Params{
 			MaxAttempts: 3,
@@ -61,7 +65,6 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 	response, err := call.PostWithRetry[signer.EncryptedBody, signer.DecryptedBody](ctx, r.URL+"/decrypt", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: int64(10 * len(cipher)),
-		Transport:       safeTransport,
 	}, []int{},
 		retry.Params{
 			MaxAttempts: 3,
@@ -93,7 +96,7 @@ func idCallFactory(client *http.Client, req *http.Request) func() (io.ReadCloser
 
 // Identify retrieves identity of the signer.
 func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
-	client := safeurl.NewClient(10 * time.Second)
+	client := &http.Client{Timeout: 10 * time.Second}
 
 	pk := types.PublicKey{}
 

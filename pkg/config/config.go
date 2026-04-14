@@ -23,10 +23,11 @@ type Config struct {
 	Logging         logger.Config   `toml:"logger"`
 	FlareTeeManager common.Address  `toml:"flare_tee_manager"`
 
-	ChainID    uint64 `toml:"chain_id"`
-	IsCosigner bool   `toml:"is_cosigner"`
-	Signer     Signer `toml:"signer"` // credentials for signer
-	FDC        FDC    `toml:"fdc"`
+	ChainID         uint64 `toml:"chain_id"`
+	IsCosigner      bool   `toml:"is_cosigner"`
+	Signer          Signer `toml:"signer"` // credentials for signer
+	FDC             FDC    `toml:"fdc"`
+	AllowUnsafeURLs bool   // set from ALLOW_UNSAFE_URLS env var — never from config file
 }
 
 func (c *Config) CheckAddress() error {

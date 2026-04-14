@@ -33,7 +33,7 @@ func TestIntegration(t *testing.T) {
 	f, err := router.NewFilterer(false, sgnr)
 	require.NoError(t, err)
 
-	rtr, err := router.NewRouter(sgnr, chainID, nil, f)
+	rtr, err := router.NewRouter(sgnr, chainID, nil, f, false)
 	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")
@@ -89,7 +89,7 @@ func TestIntegrationCosigner(t *testing.T) {
 	f, err := router.NewFilterer(true, sgnr)
 	require.NoError(t, err)
 
-	rtr, err := router.NewRouter(sgnr, chainID, nil, f)
+	rtr, err := router.NewRouter(sgnr, chainID, nil, f, false)
 	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")

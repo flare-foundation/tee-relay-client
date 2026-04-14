@@ -12,6 +12,8 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
+const allowUnsafeURLsEnv = "ALLOW_UNSAFE_URLS"
+
 const (
 	configPath string = "config.toml" // relative to project root
 )
@@ -28,12 +30,20 @@ func main() {
 		logger.Panicf("checking chain id: %v", err)
 	}
 
+	if v, ok := os.LookupEnv(allowUnsafeURLsEnv); ok && v == "true" {
+		cfg.AllowUnsafeURLs = true
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	logger.Set(cfg.Logging)
+
+	if cfg.AllowUnsafeURLs {
+		logger.Warnf("SSRF protection is disabled via %s — do not use in production", allowUnsafeURLsEnv)
+	}
 
 	cl, err := client.New(cfg)
 	if err != nil {

@@ -58,13 +58,11 @@ func TestPrepareInstruction(t *testing.T) {
 		Verifiers: map[string]config.Verifier{},
 	}
 
-	s := &rsigner.Remote{
-		Credentials: cred,
-	}
+	s := rsigner.NewRemote(cred)
 
 	chainID := uint64(14)
 
-	r, err := router.NewRouter(s, chainID, &fdcCfg, nil)
+	r, err := router.NewRouter(s, chainID, &fdcCfg, nil, false)
 	require.NoError(t, err)
 
 	out := make(chan *instructions.Base, 2)

@@ -3,6 +3,7 @@ package sender
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,10 +20,11 @@ import (
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
 const maxRespSize = 10 << 10    // 10 KiB for maximal response size of the server
 
-var safeTransport = safeurl.NewTransport()
-
 // Run starts a go routine that listens to instructions from in channel and sends them to tees.
-func Run(ctx context.Context, in <-chan *instructions.Base) {
+// When allowUnsafeURLs is true SSRF protection is disabled — only for local testing.
+func Run(ctx context.Context, in <-chan *instructions.Base, allowUnsafeURLs bool) {
+	transport := newTransport(allowUnsafeURLs)
+
 	go func() {
 		for {
 			if err := ctx.Err(); err != nil {
@@ -44,7 +46,7 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 						return
 					}
 
-					err = SendToTEE(ctx, url, *msg)
+					err = SendToTEE(ctx, url, *msg, transport)
 					if err != nil {
 						logger.Errorf("sending instruction %s for %s to %s: %v", instructionOPLogging(msg.Data), msg.Data.TeeID, url, err)
 						return
@@ -53,6 +55,13 @@ func Run(ctx context.Context, in <-chan *instructions.Base) {
 			}
 		}
 	}()
+}
+
+func newTransport(allowUnsafe bool) http.RoundTripper {
+	if allowUnsafe {
+		return http.DefaultTransport
+	}
+	return safeurl.NewTransport()
 }
 
 // SignedReceipt combines Receipt and its signature. TEMP
@@ -70,15 +79,15 @@ type Receipt struct {
 	VoteHash                      common.Hash   `json:"voteHash"`
 }
 
-// SendToTEE sends the instruction instruction endpoint of tee at url.
-func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) error {
+// SendToTEE sends the instruction to the instruction endpoint of the TEE at url.
+func SendToTEE(ctx context.Context, url string, instr instruction.Instruction, transport http.RoundTripper) error {
 	urlEndpoint := url + "/instruction"
 
 	// todo handle response
 	res, err := call.PostWithRetry[instruction.Instruction, SignedReceipt](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
-		Transport:       safeTransport,
+		Transport:       transport,
 	}, []int{},
 		retry.Params{
 			MaxAttempts: 3,

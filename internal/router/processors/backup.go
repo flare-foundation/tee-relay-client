@@ -29,14 +29,17 @@ import (
 )
 
 type Backup struct {
-	base *Base
+	base            *Base
+	allowUnsafeURLs bool
 }
 
 const sizeLimit = 500 << 10    // 500 Kib
 const errorSizeLimit = 1 << 10 // 1 Kib
 
-func NewBackup(base *Base) *Backup {
-	return &Backup{base}
+// NewBackup creates a Backup processor. When allowUnsafeURLs is true SSRF
+// protection for backup URLs is disabled — only for local testing.
+func NewBackup(base *Base, allowUnsafeURLs bool) *Backup {
+	return &Backup{base: base, allowUnsafeURLs: allowUnsafeURLs}
 }
 
 // Process handles the backup restore flow for a TEE wallet.
@@ -48,12 +51,18 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("decoding restore request: %w", err)
 	}
 
-	err = safeurl.Validate(ctx, fullRequest.BackupUrl)
-	if err != nil {
-		return fmt.Errorf("validating backup URL: %w", err)
+	if !b.allowUnsafeURLs {
+		if err = safeurl.Validate(ctx, fullRequest.BackupUrl); err != nil {
+			return fmt.Errorf("validating backup URL: %w", err)
+		}
 	}
 
-	client := safeurl.NewClient(10 * time.Second)
+	var client *http.Client
+	if b.allowUnsafeURLs {
+		client = &http.Client{Timeout: 10 * time.Second}
+	} else {
+		client = safeurl.NewClient(10 * time.Second)
+	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fullRequest.BackupUrl, nil)
 	if err != nil {
