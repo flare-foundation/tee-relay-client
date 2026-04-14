@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -47,7 +48,12 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("decoding restore request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	err = safeurl.Validate(ctx, fullRequest.BackupUrl)
+	if err != nil {
+		return fmt.Errorf("validating backup URL: %w", err)
+	}
+
+	client := safeurl.NewClient(10 * time.Second)
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fullRequest.BackupUrl, nil)
 	if err != nil {

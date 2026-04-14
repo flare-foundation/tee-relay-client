@@ -16,4 +16,6 @@ WORKDIR /app
 COPY --from=builder /app/tee-relay-client .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-CMD ["./tee-relay-client" ]
+USER 10001
+
+CMD ["./tee-relay-client"]

@@ -11,12 +11,15 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
+	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 )
 
 const timeout = 5 * time.Second // maximal duration for the server to resolve the query
 const maxRespSize = 10 << 10    // 10 KiB for maximal response size of the server
+
+var safeTransport = safeurl.NewTransport()
 
 // Run starts a go routine that listens to instructions from in channel and sends them to tees.
 func Run(ctx context.Context, in <-chan *instructions.Base) {
@@ -75,6 +78,7 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction) e
 	res, err := call.PostWithRetry[instruction.Instruction, SignedReceipt](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: maxRespSize,
+		Transport:       safeTransport,
 	}, []int{},
 		retry.Params{
 			MaxAttempts: 3,
