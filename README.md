@@ -13,19 +13,28 @@
 # TEE relay client
 
 TEE relay client is a connector between smart contracts on Flare's C-chain and TEE clients.
-It listens to TeeInstructionsSent events emitted by the FlareTeeManager diamond contract, processes them and sends them to the TEE nodes.
+It listens to `TeeInstructionsSent` events emitted by the `TeeExtensionRegistry` smart contract, processes them, and forwards them to the TEE nodes.
 
 ## Running
 
-TODO
+Build and run the relay client:
+
+```shell
+go build -o tee-relay ./cmd/main
+./tee-relay
+```
+
+The binary expects `config.toml` to be present in the working directory.
 
 ### Docker
+
+TODO
 
 ## Configurations
 
 The configuration is read from the `config.toml` file.
 
-You can create your own `config.toml` file or start from `config.toml.example`
+Copy the example to get started:
 
 ```shell
 cp config.toml.example config.toml
@@ -33,29 +42,27 @@ cp config.toml.example config.toml
 
 ### Modes of operation
 
-TEE relay client can be run in _provider_ or _cosigner_ mode.
-The boolean field `is_cosigner` in configs sets the mode - _true_ for cosigner, _false_ for provider.
-The default mode is provider.
+TEE relay client can be run in _provider_ or _cosigner_ mode, controlled by the `is_cosigner` field.
 
 #### Provider mode
 
-The provider mode is for all Flare entities that are included in the current signing policy.
-In this mode, the relay client considers all instructions.
+For Flare entities included in the current signing policy. The relay client processes all instructions.
 
 ```toml
-is_cosigner = false # default is false
+is_cosigner = false # default
 ```
 
 #### Cosigner mode
 
-The cosigner mode is for all cosigners defined by protocols that use TEEs that are not included in the signing policy.
-In this mode, the relay client considers only the instructions that contain address corresponding to the used private key among cosigners.
+For cosigners defined by TEE protocols that are not in the signing policy. The relay client processes only instructions that include the address corresponding to the configured private key among the cosigners.
 
 ```toml
-is_cosigner = true  # default is false
+is_cosigner = true
 ```
 
 ### FlareTeeManager address
+
+Address of the `TeeExtensionRegistry` smart contract to listen to:
 
 ```toml
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
@@ -63,7 +70,7 @@ flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
 ### C-chain indexer database
 
-C-chain indexer database credentials:
+Credentials for the C-chain indexer database:
 
 ```toml
 [db]
@@ -76,112 +83,101 @@ log_queries = false
 ```
 
 The database should be operated by C-chain indexer connected to desired chain.
-The indexer should index TeeInstructionsSent events emitted by the FlareTeeManager diamond contract.
+The indexer should index `TeeInstructionsSent` events emitted by the FlareTeeManager diamond contract.
 
 ### Signer
 
-The relay client needs access to a private key.
-In the case of providers, to the signing policy key.
-In the case of cosigners, to the designated private key for cosigning.
+The relay client requires access to a private key — the signing policy key for providers, or the designated cosigning key for cosigners. The key is used to:
 
-It needs the private key to do the following:
+- sign instructions
+- identify and decrypt packages for key recovery
+- (cosigner mode only) identify relevant instructions
 
-- sign the instructions
-- identify and decipher packages for key recovery
-- (only in cosigner mode) identify the relevant instructions
-
-There are two ways to achieve this.
+Two modes are supported.
 
 #### Local signer
 
-Private key can be held by the relay client.
-It is read from env variable.
-
-To enable the following should be in the config.
+The private key is held by the relay client itself, read from an environment variable at startup.
 
 ```toml
 [signer]
 local = true
-private_key_variable = "ENV_PRIVATE_KEY_VARIABLE" # default is "PRIVATE_KEY"
+private_key_variable = "PRIVATE_KEY" # name of the env var; defaults to "PRIVATE_KEY"
 ```
 
-Private key should be held as an env variable under the set name (private_key_variable) as 0x (or 0X) prefixed 32-byte hex string.
+Set the environment variable to a `0x`-prefixed 32-byte hex string:
+
+```shell
+export PRIVATE_KEY=0x<64 hex chars>
+```
 
 #### External signer
 
-Private key can be held by an external signer (usually FSP client).
-To enable the following should be in the config.
+The private key is held by an external signer service (typically the FSP client).
 
 ```toml
 [signer]
 local = false
-url =
+url = "http://signer-host:port"
 key_name = "X-API-KEY"
-key =
+key = "<api-key>"
 ```
 
-The external signer server should serve endpoints `/sign`, `/decrypt`, and `/id`.
+The external signer URL is operator-controlled and may point to a local address.
 
-The `/sign`endpoint should accept json body
+The signer service must expose three endpoints:
+
+**`POST /sign`**
+
+Request:
 
 ```json
-{
-  "hashes": ["<array of 0x prefixed 32 byte hex strings>"]
-}
+{ "hashes": ["<0x-prefixed 32-byte hex>", ...] }
 ```
 
-and return
+Response:
 
 ```json
-{
-  "signatures": ["<array of 0x prefixed 65 byte hex strings>"]
-}
+{ "signatures": ["<0x-prefixed 65-byte hex>", ...] }
 ```
 
-where $j\text{th}$ element of signatures is ECDSA personal signature of $j\text{th}$ hash.
-Consult [ERC-191](https://eips.ethereum.org/EIPS/eip-191) version 0x45 for personal signature.
+The `j`-th signature is the ECDSA personal signature ([ERC-191](https://eips.ethereum.org/EIPS/eip-191) version `0x45`) of the `j`-th hash.
 
-The `/decrypt`endpoint should accept json body
+**`POST /decrypt`**
+
+Request:
 
 ```json
-{
-  "cipher": "<0x prefixed hex cipher text>"
-}
+{ "cipher": "<0x-prefixed hex ciphertext>" }
 ```
 
-and return
+Response:
 
 ```json
-{
-  "plain": "<0x prefixed hex plaintext>"
-}
+{ "plain": "<0x-prefixed hex plaintext>" }
 ```
 
-where plain in ECIES decryption of the cipher.
+`plain` is the ECIES decryption of `cipher`.
 
-The `/id` end point accepts empty body and returns coordinates EDCSA secp256k1 public key of the key used for signing and decrypting in json body
+**`GET /id`**
+
+Response:
 
 ```json
-{
-  "x": "<0x prefixed 32 byte hex string>",
-  "y": "<0x prefixed 32 byte hex string>"
-}
+{ "x": "<0x-prefixed 32-byte hex>", "y": "<0x-prefixed 32-byte hex>" }
 ```
 
-Such server is implemented in TODO (go flare common)
+Returns the secp256k1 public key coordinates of the key used for signing and decryption.
+
+A reference implementation is provided in [`go-flare-common/pkg/tee/signer`](https://github.com/flare-foundation/go-flare-common/tree/main/pkg/tee/signer).
 
 ### FDC2
 
-One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector).
-The instructions for FDC2 have to be additionally processed by the relay clients - they have to be sent to designated verifier servers to get attestation responses.
+One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector). FDC2 instructions require additional processing — the relay client must query designated verifier servers to obtain attestation responses.
 
-For each supported pair of attestation type and source an access to a verifier should be configured.
-To avoid overloading the servers, each verifier has a queue.
-A queue can be shared by more verifiers, which should be done if more verifiers are hosted on the same server.
+A verifier must be configured for each supported (attestation type, source) pair. To avoid overloading servers, each verifier is backed by a queue. Multiple verifiers can share a queue when they point to the same server.
 
 #### Queues
-
-To configure a queue with name "serverX" add the following to the configurations:
 
 ```toml
 [fdc.queues.exampleQueue]
@@ -193,27 +189,31 @@ time_off = "2s"
 
 #### Verifiers
 
-To configure a verifier for a pair of attestation type and source, and bind it to a queue add the following to the configuration:
-
 ```toml
-[fdc.verifiers.availability]
+[fdc.verifiers.example]
 type = "AttestationTypeExampleName"
 source = "ExampleSource"
 queue = "exampleQueue"
-server.url = "example.com/to/the/right/endpoint"
+server.url = "http://verifier-host/path/to/endpoint"
 server.key_name = "X-API-KEY"
 server.key = "exampleKey"
 ```
 
+Verifier server URLs are operator-controlled and may point to local addresses.
+
 ### Logging
 
-Logging configurations:
-
 ```toml
-# logging config
 [logger]
-max_file_size = 10 # 10MB
-file = ""
-level = "INFO"
-console = true
+level = "INFO"       # DEBUG, INFO, WARN, ERROR
+console = true       # write logs to stdout
+file = ""            # path to log file; empty disables file logging
+max_file_size = 10   # max log file size in MB before rotation
 ```
+
+## Environment variables
+
+| Variable            | Required                   | Description                                                                                                                                                      |
+| ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRIVATE_KEY`       | When `signer.local = true` | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                               |
+| `ALLOW_UNSAFE_URLS` | No                         | Set to `true` to disable SSRF protection on backup and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled. |
