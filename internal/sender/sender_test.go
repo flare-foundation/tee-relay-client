@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-relay-client/internal/router"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
@@ -39,13 +38,7 @@ func TestPrepareInstruction(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	cfg := signer.Config{
-		Addr:       ":8080",
-		APIKeyName: "X-API-KEY",
-		APIKeys:    []string{"123"},
-	}
-
-	signerServer, cred, err := testutils.NewTestSigner(cfg, prv)
+	signerServer, cred, err := testutils.NewTestSigner(prv)
 	require.NoError(t, err)
 
 	go func() {

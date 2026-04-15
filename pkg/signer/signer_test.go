@@ -23,13 +23,7 @@ func TestRemote(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	cfg := signer.Config{
-		Addr:       ":8080",
-		APIKeyName: "X-API-KEY",
-		APIKeys:    []string{"123"},
-	}
-
-	signerServer, cred, err := testutils.NewTestSigner(cfg, prv)
+	signerServer, cred, err := testutils.NewTestSigner(prv)
 	require.NoError(t, err)
 
 	go func() {
