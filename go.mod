@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/ethereum/go-ethereum v1.16.7
-	github.com/flare-foundation/go-flare-common v1.2.1-0.20260312105002-c0e3c9ae661f
+	github.com/flare-foundation/go-flare-common v1.2.1-0.20260419194149-8bd079a69839
 	github.com/flare-foundation/tee-node v0.0.15
 	github.com/stretchr/testify v1.11.1
 	gorm.io/driver/sqlite v1.6.0
@@ -38,8 +38,6 @@ require (
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
-	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect

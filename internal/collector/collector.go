@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/gorm"
@@ -18,12 +18,12 @@ const requestInterval = 2 * time.Second // TODO: set the frequency of database r
 var TeeInstructionsSentSel common.Hash // set in init
 
 func init() {
-	teeExtensionRegistryABI, err := teeextensionregistry.TeeExtensionRegistryMetaData.GetAbi()
+	teeInstructionsABI, err := teeinstructions.TeeInstructionsMetaData.GetAbi()
 	if err != nil {
-		panic("getting teeExtensionRegistryABI abi: " + err.Error())
+		panic("getting teeInstructionsABI abi: " + err.Error())
 	}
 
-	event, exits := teeExtensionRegistryABI.Events["TeeInstructionsSent"]
+	event, exits := teeInstructionsABI.Events["TeeInstructionsSent"]
 	if !exits {
 		panic("invalid event TeeInstructionsSent")
 	}
@@ -52,7 +52,7 @@ func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
 		MinSleepTime:       5 * time.Second,
 	}
 
-	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.GetLogger())
+	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger())
 	if err != nil {
 		return fmt.Errorf("waiting for indexer to sync: %w", err)
 	}

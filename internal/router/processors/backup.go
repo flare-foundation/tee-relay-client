@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -42,7 +42,7 @@ func NewBackup(base *Base) *Backup {
 // It fetches backup data, decodes and decrypts it, prepares the message for TEE,
 // encrypts it for the TEE node, signs the message, and sends it to the output channel.
 func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
-	fullRequest, err := structs.Decode[wallet.ITeeWalletBackupManagerKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
+	fullRequest, err := structs.Decode[wallet.IWalletBackupManagerFacetKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding restore request: %w", err)
 	}
@@ -247,7 +247,7 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 }
 
 // checkConsistency checks that the fields in the restore request match those in the wallet backup ID.
-func checkConsistency(request wallet.ITeeWalletBackupManagerKeyDataProviderRestore, id wallets.WalletBackupID, tees []teeextensionregistry.ITeeMachineRegistryTeeMachine) error {
+func checkConsistency(request wallet.IWalletBackupManagerFacetKeyDataProviderRestore, id wallets.WalletBackupID, tees []teeinstructions.IMachineManagerFacetTeeMachine) error {
 	pk, err := types.ParsePubKey(types.PublicKey{
 		X: request.TeePublicKey.X,
 		Y: request.TeePublicKey.Y,

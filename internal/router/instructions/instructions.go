@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -16,12 +16,12 @@ import (
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
-var teeFilterer *teeextensionregistry.TeeExtensionRegistryFilterer
+var teeFilterer *teeinstructions.TeeInstructionsFilterer
 
-type InstructionSentEvent = teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
+type InstructionSentEvent = teeinstructions.TeeInstructionsTeeInstructionsSent
 type Base struct {
 	Event       *InstructionSentEvent
-	Tees        []teeextensionregistry.ITeeMachineRegistryTeeMachine
+	Tees        []teeinstructions.IMachineManagerFacetTeeMachine
 	GeneralData instruction.Data // Data without TeeID
 	Signatures  []hexutil.Bytes
 }
@@ -30,7 +30,7 @@ type Base struct {
 func init() {
 	var err error
 
-	teeFilterer, err = teeextensionregistry.NewTeeExtensionRegistryFilterer(common.Address{}, nil)
+	teeFilterer, err = teeinstructions.NewTeeInstructionsFilterer(common.Address{}, nil)
 	if err != nil {
 		panic("cannot get tee instructions filterer: " + err.Error())
 	}
@@ -126,9 +126,9 @@ func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
 }
 
 // removeDuplicates creates a new array from s without duplicated entries.
-func removeDuplicates(s []teeextensionregistry.ITeeMachineRegistryTeeMachine) []teeextensionregistry.ITeeMachineRegistryTeeMachine {
-	set := make(map[teeextensionregistry.ITeeMachineRegistryTeeMachine]bool)
-	unique := make([]teeextensionregistry.ITeeMachineRegistryTeeMachine, 0, len(s))
+func removeDuplicates(s []teeinstructions.IMachineManagerFacetTeeMachine) []teeinstructions.IMachineManagerFacetTeeMachine {
+	set := make(map[teeinstructions.IMachineManagerFacetTeeMachine]bool)
+	unique := make([]teeinstructions.IMachineManagerFacetTeeMachine, 0, len(s))
 	for j := range s {
 		if !set[s[j]] {
 			set[s[j]] = true
