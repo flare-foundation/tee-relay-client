@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -16,9 +16,9 @@ import (
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
-var teeFilterer *teeinstructions.TeeInstructionsFilterer
+var teeFilterer *teeinstructions.InstructionsFilterer
 
-type InstructionSentEvent = teeinstructions.TeeInstructionsTeeInstructionsSent
+type InstructionSentEvent = teeinstructions.InstructionsTeeInstructionsSent
 type Base struct {
 	Event       *InstructionSentEvent
 	Tees        []teeinstructions.IMachineManagerTeeMachine
@@ -30,7 +30,7 @@ type Base struct {
 func init() {
 	var err error
 
-	teeFilterer, err = teeinstructions.NewTeeInstructionsFilterer(common.Address{}, nil)
+	teeFilterer, err = teeinstructions.NewInstructionsFilterer(common.Address{}, nil)
 	if err != nil {
 		panic("cannot get tee instructions filterer: " + err.Error())
 	}

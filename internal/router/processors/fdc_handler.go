@@ -8,7 +8,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/tee-node/pkg/fdc"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
@@ -26,7 +26,7 @@ var _ Responder = &Verifier{}
 // Responder provides attestation responses for attestation requests.
 // Response returns the attestation response bytes, a success flag, and an error.
 type Responder interface {
-	Response(context.Context, connector.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error)
+	Response(context.Context, fdc2.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error)
 }
 
 func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandler, error) {
@@ -49,7 +49,7 @@ func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandle
 
 // Handle handles instruction base for opType F_FDC2 opCommand PROVE.
 func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
-	fullRequest, err := structs.Decode[connector.IFdc2HubFdc2AttestationRequest](connector.MessageArguments[op.Prove], ib.GeneralData.OriginalMessage)
+	fullRequest, err := structs.Decode[fdc2.IFdc2HubFdc2AttestationRequest](fdc2.MessageArguments[op.Prove], ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding request: %w", err) // should never happen
 	}
@@ -105,7 +105,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 // returns concatenated attestation type and source ID each 32 bytes
 // for and encoded attestationRequest.
 func AttTypeAndSourceIDBase(b *instructions.Base) ([64]byte, error) {
-	fullRequest, err := structs.Decode[connector.IFdc2HubFdc2AttestationRequest](connector.MessageArguments[op.Prove], b.GeneralData.OriginalMessage)
+	fullRequest, err := structs.Decode[fdc2.IFdc2HubFdc2AttestationRequest](fdc2.MessageArguments[op.Prove], b.GeneralData.OriginalMessage)
 	if err != nil {
 		return [64]byte{}, fmt.Errorf("decoding fdc request: %w", err)
 	}
@@ -115,7 +115,7 @@ func AttTypeAndSourceIDBase(b *instructions.Base) ([64]byte, error) {
 
 // AttTypeAndSourceID returns concatenated attestation type and source ID each 32 bytes
 // for and encoded attestationRequest.
-func AttTypeAndSourceID(header *connector.IFdc2HubFdc2RequestHeader) ([64]byte, error) {
+func AttTypeAndSourceID(header *fdc2.IFdc2HubFdc2RequestHeader) ([64]byte, error) {
 	res := [64]byte{}
 
 	copy(res[:32], header.AttestationType[:])

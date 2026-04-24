@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
@@ -34,7 +34,7 @@ type VerifierRequest struct {
 
 // Response sends an attestation request to the verifier server and returns the response.
 // It performs retries on failure and returns the response bytes, a success flag, and an error.
-func (v *Verifier) Response(ctx context.Context, request connector.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error) {
+func (v *Verifier) Response(ctx context.Context, request fdc2.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error) {
 	verifierRequest := VerifierRequest{
 		AttestationType: request.Header.AttestationType,
 		SourceID:        request.Header.SourceId,

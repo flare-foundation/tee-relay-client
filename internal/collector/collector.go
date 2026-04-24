@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/gorm"
@@ -18,7 +18,7 @@ const requestInterval = 2 * time.Second // TODO: set the frequency of database r
 var TeeInstructionsSentSel common.Hash // set in init
 
 func init() {
-	teeInstructionsABI, err := teeinstructions.TeeInstructionsMetaData.GetAbi()
+	teeInstructionsABI, err := teeinstructions.InstructionsMetaData.GetAbi()
 	if err != nil {
 		panic("getting teeInstructionsABI abi: " + err.Error())
 	}
