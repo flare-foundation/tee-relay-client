@@ -35,7 +35,7 @@ func New(cfg config.Config) (*Client, error) {
 		return nil, fmt.Errorf("could not set filterer: %w", err)
 	}
 
-	c := collector.New(db, cfg.TeeExtensionRegistry)
+	c := collector.New(db, cfg.FlareTeeManager)
 	r, err := router.NewRouter(sgnr, &cfg.FDC, filterer)
 	if err != nil {
 		return nil, fmt.Errorf("could not create router: %w", err)

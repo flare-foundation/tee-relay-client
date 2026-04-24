@@ -1,4 +1,4 @@
-tee_extension_registry = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
+flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
 is_cosigner = false
 

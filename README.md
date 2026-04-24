@@ -13,7 +13,7 @@
 # TEE relay client
 
 TEE relay client is a connector between smart contracts on Flare's C-chain and TEE clients.
-It listens to TeeInstructionsSent events emitted by TeeExtensionRegistry smart contract, processes them and sends them to the TEE nodes.
+It listens to TeeInstructionsSent events emitted by the FlareTeeManager diamond contract, processes them and sends them to the TEE nodes.
 
 ## Running
 
@@ -55,10 +55,10 @@ In this mode, the relay client considers only the instructions that contain addr
 is_cosigner = true  # default is false
 ```
 
-### TeeExtensionRegistry address
+### FlareTeeManager address
 
 ```toml
-tee_extension_registry = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
+flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 ```
 
 ### C-chain indexer database
@@ -76,7 +76,7 @@ log_queries = false
 ```
 
 The database should be operated by C-chain indexer connected to desired chain.
-The indexer should index TeeInstructionsSent events emitted by TeeExtensionRegistry smart contract.
+The indexer should index TeeInstructionsSent events emitted by the FlareTeeManager diamond contract.
 
 ### Signer
 

@@ -19,9 +19,9 @@ import (
 const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 
 type Config struct {
-	DB                   database.Config `toml:"db"`
-	Logging              logger.Config   `toml:"logger"`
-	TeeExtensionRegistry common.Address  `toml:"tee_extension_registry"`
+	DB              database.Config `toml:"db"`
+	Logging         logger.Config   `toml:"logger"`
+	FlareTeeManager common.Address  `toml:"flare_tee_manager"`
 
 	IsCosigner bool   `toml:"is_cosigner"`
 	Signer     Signer `toml:"signer"` // credentials for signer
@@ -31,8 +31,8 @@ type Config struct {
 func (c *Config) CheckAddress() error {
 	zeroAddress := common.Address{}
 
-	if c.TeeExtensionRegistry == zeroAddress {
-		return errors.New("TeeExtensionRegistry address not set")
+	if c.FlareTeeManager == zeroAddress {
+		return errors.New("FlareTeeManager address not set")
 	}
 
 	return nil
