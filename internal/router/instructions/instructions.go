@@ -21,7 +21,7 @@ var teeFilterer *teeinstructions.TeeInstructionsFilterer
 type InstructionSentEvent = teeinstructions.TeeInstructionsTeeInstructionsSent
 type Base struct {
 	Event       *InstructionSentEvent
-	Tees        []teeinstructions.IMachineManagerFacetTeeMachine
+	Tees        []teeinstructions.IMachineManagerTeeMachine
 	GeneralData instruction.Data // Data without TeeID
 	Signatures  []hexutil.Bytes
 }
@@ -126,9 +126,9 @@ func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
 }
 
 // removeDuplicates creates a new array from s without duplicated entries.
-func removeDuplicates(s []teeinstructions.IMachineManagerFacetTeeMachine) []teeinstructions.IMachineManagerFacetTeeMachine {
-	set := make(map[teeinstructions.IMachineManagerFacetTeeMachine]bool)
-	unique := make([]teeinstructions.IMachineManagerFacetTeeMachine, 0, len(s))
+func removeDuplicates(s []teeinstructions.IMachineManagerTeeMachine) []teeinstructions.IMachineManagerTeeMachine {
+	set := make(map[teeinstructions.IMachineManagerTeeMachine]bool)
+	unique := make([]teeinstructions.IMachineManagerTeeMachine, 0, len(s))
 	for j := range s {
 		if !set[s[j]] {
 			set[s[j]] = true
