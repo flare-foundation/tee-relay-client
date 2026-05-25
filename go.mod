@@ -4,16 +4,12 @@ go 1.25.1
 
 require (
 	github.com/ethereum/go-ethereum v1.16.7
-	github.com/flare-foundation/go-flare-common v1.2.1-0.20260424152410-876c09e65794
-	github.com/flare-foundation/tee-node v0.0.15
+	github.com/flare-foundation/go-flare-common v1.2.2-0.20260513113241-cd650fbbf3f7
+	github.com/flare-foundation/tee-node v0.0.20
 	github.com/stretchr/testify v1.11.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
 )
-
-replace github.com/flare-foundation/tee-node => ../tee-node
-
-// replace github.com/flare-foundation/tee-proxy => ../tee-proxy
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
