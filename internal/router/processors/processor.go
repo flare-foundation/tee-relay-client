@@ -1,3 +1,4 @@
+// Package processors processes router instructions for FDC, backup and base flows.
 package processors
 
 import (
@@ -23,12 +24,14 @@ type Base struct {
 	out chan<- *instructions.Base
 }
 
+// NewBase returns a Base that signs with signer; the out channel must be set separately via SetOut.
 func NewBase(signer signer.Signer) (b *Base) {
 	return &Base{
 		signer: signer,
 	}
 }
 
+// SetOut sets the output channel for processed instructions.
 func (b *Base) SetOut(out chan<- *instructions.Base) {
 	b.out = out
 }

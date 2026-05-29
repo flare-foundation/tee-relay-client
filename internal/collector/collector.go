@@ -1,3 +1,4 @@
+// Package collector listens for TeeInstructionsSent events in the indexer database.
 package collector
 
 import (
@@ -15,6 +16,7 @@ import (
 const startInterval = 100               // TODO: set it; indexing starts from the last block minus start interval
 const requestInterval = 2 * time.Second // TODO: set the frequency of database requests
 
+// TeeInstructionsSentSel is the event selector (topic0) of the TeeInstructionsSent event.
 var TeeInstructionsSentSel common.Hash // set in init
 
 func init() {
@@ -31,6 +33,7 @@ func init() {
 	TeeInstructionsSentSel = event.ID
 }
 
+// Collector listens for TeeInstructionsSent events emitted by the FlareTeeManager in the indexer database.
 type Collector struct {
 	DB              *gorm.DB // c-chain indexer db
 	flareTeeManager common.Address

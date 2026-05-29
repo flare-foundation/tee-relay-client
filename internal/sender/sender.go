@@ -1,3 +1,4 @@
+// Package sender sends instructions to the TEE machines.
 package sender
 
 import (
@@ -70,6 +71,7 @@ type SignedReceipt struct {
 	Signature hexutil.Bytes `json:"signature"`
 }
 
+// Receipt is the result returned by a TEE for a delivered instruction.
 type Receipt struct {
 	InstructionHash               common.Hash   `json:"instructionHash"`
 	Sequence                      uint64        `json:"sequence"`

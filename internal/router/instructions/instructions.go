@@ -1,3 +1,4 @@
+// Package instructions parses and signs TEE instruction events from the indexer database.
 package instructions
 
 import (
@@ -18,7 +19,10 @@ import (
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
 var teeFilterer *teeinstructions.InstructionsFilterer
 
+// InstructionSentEvent is the parsed TeeInstructionsSent log.
 type InstructionSentEvent = teeinstructions.InstructionsTeeInstructionsSent
+
+// Base holds a TEE instruction event together with its parsed data and signatures.
 type Base struct {
 	Event       *InstructionSentEvent
 	Tees        []teeinstructions.IMachineManagerTeeMachine
@@ -26,7 +30,7 @@ type Base struct {
 	Signatures  []hexutil.Bytes
 }
 
-// init sets the fdcFilterer.
+// init sets the teeFilterer.
 func init() {
 	var err error
 
@@ -108,7 +112,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	return hashes, nil
 }
 
-// sign sets signatures of instructions for each Tee.
+// Sign sets signatures of instructions for each Tee.
 func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
 	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
 

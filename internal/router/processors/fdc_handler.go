@@ -31,6 +31,7 @@ type Responder interface {
 	Response(context.Context, fdc2.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error)
 }
 
+// NewFDCHandler returns an FDCHandler that routes requests to the given verifiers.
 func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandler, error) {
 	fdcHandler := &FDCHandler{
 		Base:      base,

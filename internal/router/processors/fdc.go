@@ -18,6 +18,7 @@ type FDC struct {
 	handler       *FDCHandler
 }
 
+// NewFDC returns an FDC built from cfg and base; a nil cfg yields an FDC with no queues or verifiers.
 func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 	if cfg == nil {
 		handler, err := NewFDCHandler(base, nil)

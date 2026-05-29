@@ -1,3 +1,4 @@
+// Package router routes parsed instruction logs to their processors.
 package router
 
 import (
@@ -14,9 +15,10 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
-// Instruction Class refers to an implementation of Instruction interface.
+// InstructionClass selects which processor implementation handles an instruction.
 type InstructionClass int
 
+// InstructionClass values enumerate the supported instruction classes.
 const (
 	Invalid InstructionClass = iota
 	Plain

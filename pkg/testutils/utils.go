@@ -46,6 +46,7 @@ func NewTestSigner(prv *ecdsa.PrivateKey) (*signer.Signer, *config.Credentials, 
 	return s, &cred, nil
 }
 
+// NilCred is a Credentials with empty fields.
 var NilCred = &config.Credentials{
 	KeyName: "",
 	Key:     "",

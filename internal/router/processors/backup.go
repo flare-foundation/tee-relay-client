@@ -28,6 +28,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
 )
 
+// Backup processes wallet backup restore instructions.
 type Backup struct {
 	base            *Base
 	allowUnsafeURLs bool
@@ -79,7 +80,6 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 			respLimited := &io.LimitedReader{R: resp.Body, N: errorSizeLimit}
 			buf := new(strings.Builder)
 			_, err := io.Copy(buf, respLimited)
-			// check errors
 			if err == nil {
 				return fmt.Errorf("request responded with code %d, reason: %s", resp.StatusCode, buf.String())
 			}

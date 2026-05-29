@@ -1,3 +1,4 @@
+// Package signer provides local and remote implementations for signing, decryption and identification.
 package signer
 
 import (
@@ -8,6 +9,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/types"
 )
 
+// Signer signs hashes, decrypts ciphers and reports its identity.
 type Signer interface {
 	// Sign signs each hash.
 	Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error)

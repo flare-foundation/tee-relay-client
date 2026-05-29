@@ -1,3 +1,4 @@
+// Package config defines the relay client configuration and helpers to load and validate it.
 package config
 
 import (
@@ -16,8 +17,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 )
 
+// DefaultPrivateKeyVariable is the default environment variable name holding the signer private key.
 const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 
+// Config holds the relay client configuration.
 type Config struct {
 	DB              database.Config `toml:"db"`
 	Logging         logger.Config   `toml:"logger"`
@@ -30,6 +33,7 @@ type Config struct {
 	AllowUnsafeURLs bool   // set from ALLOW_UNSAFE_URLS env var — never from config file
 }
 
+// CheckAddress returns an error if the FlareTeeManager address is unset.
 func (c *Config) CheckAddress() error {
 	zeroAddress := common.Address{}
 
@@ -40,6 +44,7 @@ func (c *Config) CheckAddress() error {
 	return nil
 }
 
+// CheckChainID returns an error if the ChainID is zero.
 func (c *Config) CheckChainID() error {
 	if c.ChainID == 0 {
 		return errors.New("chain id should be a positive integer")
@@ -49,7 +54,7 @@ func (c *Config) CheckChainID() error {
 }
 
 // Signer holds credentials for the signer.
-// If Local is true, privet key the set env variable is used for local signing.
+// If Local is true, the private key from the set env variable is used for local signing.
 type Signer struct {
 	Credentials
 
@@ -57,6 +62,7 @@ type Signer struct {
 	PrivateKeyVariable string `toml:"private_key_variable"`
 }
 
+// Credentials holds the API key and URL used to reach a server.
 type Credentials struct {
 	KeyName string `toml:"key_name"`
 	Key     string `toml:"key"`
@@ -76,6 +82,7 @@ func (c *Credentials) Check() error {
 	return nil
 }
 
+// APIKey returns the credentials as a call.APIKey.
 func (c *Credentials) APIKey() call.APIKey {
 	return call.APIKey{
 		Name: c.KeyName,
@@ -83,11 +90,13 @@ func (c *Credentials) APIKey() call.APIKey {
 	}
 }
 
+// FDC holds the FDC queue and verifier configuration.
 type FDC struct {
 	Queues    map[string]priority.Params `toml:"queues"`
 	Verifiers map[string]Verifier        `toml:"verifiers"`
 }
 
+// Verifier holds the configuration for a single attestation verifier.
 type Verifier struct {
 	AttType   string      `toml:"type"`
 	SourceID  string      `toml:"source"`
@@ -95,10 +104,12 @@ type Verifier struct {
 	QueueName string      `toml:"queue"`
 }
 
+// AttTypeAndSourceID returns the verifier's attestation type and source ID joined into a 64-byte array.
 func (v *Verifier) AttTypeAndSourceID() ([64]byte, error) {
 	return JoinAttTypeAndSourceID(v.AttType, v.SourceID)
 }
 
+// JoinAttTypeAndSourceID joins an attestation type and source ID into a 64-byte array.
 func JoinAttTypeAndSourceID(attType string, sourceID string) ([64]byte, error) {
 	x := [64]byte{}
 

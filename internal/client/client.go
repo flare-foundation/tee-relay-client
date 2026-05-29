@@ -1,3 +1,4 @@
+// Package client wires together the collector, router, and sender.
 package client
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
+// Client collects logs, routes them, and sends the results.
 type Client struct {
 	collector       *collector.Collector
 	router          *router.Router
