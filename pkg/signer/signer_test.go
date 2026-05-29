@@ -29,7 +29,8 @@ func TestRemote(t *testing.T) {
 		APIKeys:    []string{"123"},
 	}
 
-	signerServer, cred := testutils.NewTestSigner(cfg, prv)
+	signerServer, cred, err := testutils.NewTestSigner(cfg, prv)
+	require.NoError(t, err)
 
 	go func() {
 		err := signerServer.Run(ctx)

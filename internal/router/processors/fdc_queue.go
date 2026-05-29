@@ -31,7 +31,7 @@ type FDCQueue struct {
 func NewQueue(params priority.Params, name string) *FDCQueue {
 	queue := priority.New[*instructions.Base, Weight](params, name)
 
-	return &FDCQueue{&queue}
+	return &FDCQueue{queue}
 }
 
 type Handler interface {

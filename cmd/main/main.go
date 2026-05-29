@@ -24,6 +24,9 @@ func main() {
 	if err := cfg.CheckAddress(); err != nil {
 		logger.Panicf("checking address: %v", err)
 	}
+	if err := cfg.CheckChainID(); err != nil {
+		logger.Panicf("checking chain id: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 

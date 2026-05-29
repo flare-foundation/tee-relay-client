@@ -45,7 +45,8 @@ func TestPrepareInstruction(t *testing.T) {
 		APIKeys:    []string{"123"},
 	}
 
-	signerServer, cred := testutils.NewTestSigner(cfg, prv)
+	signerServer, cred, err := testutils.NewTestSigner(cfg, prv)
+	require.NoError(t, err)
 
 	go func() {
 		err := signerServer.Run(ctx)
@@ -61,7 +62,9 @@ func TestPrepareInstruction(t *testing.T) {
 		Credentials: cred,
 	}
 
-	r, err := router.NewRouter(s, &fdcCfg, nil)
+	chainID := uint64(14)
+
+	r, err := router.NewRouter(s, chainID, &fdcCfg, nil)
 	require.NoError(t, err)
 
 	out := make(chan *instructions.Base, 2)

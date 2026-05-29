@@ -36,7 +36,7 @@ func New(cfg config.Config) (*Client, error) {
 	}
 
 	c := collector.New(db, cfg.FlareTeeManager)
-	r, err := router.NewRouter(sgnr, &cfg.FDC, filterer)
+	r, err := router.NewRouter(sgnr, cfg.ChainID, &cfg.FDC, filterer)
 	if err != nil {
 		return nil, fmt.Errorf("could not create router: %w", err)
 	}

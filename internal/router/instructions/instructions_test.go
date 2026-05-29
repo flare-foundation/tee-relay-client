@@ -25,10 +25,12 @@ func TestParseInstruction(t *testing.T) {
 
 	var event database.Log
 
+	chainID := uint64(14)
+
 	err := json.Unmarshal([]byte(eventDBjson), &event)
 	require.NoError(t, err)
 
-	ib, err := ParseInstruction(event)
+	ib, err := ParseInstruction(event, chainID)
 	require.NoError(t, err)
 
 	require.Len(t, ib.Signatures, 0)

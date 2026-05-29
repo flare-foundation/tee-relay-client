@@ -28,18 +28,21 @@ const (
 type Router struct {
 	Filterer
 
+	chainID uint64
+
 	baseProcessor   *processors.Base
 	fdcProcessor    *processors.FDC
 	backupProcessor *processors.Backup
 }
 
 // NewRouter assembles Router from configs.
-func NewRouter(signer signer.Signer, fdcCfg *config.FDC, filterer Filterer) (*Router, error) {
+func NewRouter(signer signer.Signer, chainID uint64, fdcCfg *config.FDC, filterer Filterer) (*Router, error) {
 	r := new(Router)
 
 	r.Filterer = filterer
 	r.baseProcessor = processors.NewBase(signer)
 	r.backupProcessor = processors.NewBackup(r.baseProcessor)
+	r.chainID = chainID
 
 	var err error
 	r.fdcProcessor, err = processors.NewFDC(fdcCfg, r.baseProcessor)
@@ -94,7 +97,7 @@ func (router *Router) Run(ctx context.Context, in <-chan []database.Log, out cha
 
 // Handle parses, processes instruction log.
 func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
-	instr, err := instructions.ParseInstruction(inLog)
+	instr, err := instructions.ParseInstruction(inLog, r.chainID)
 	if err != nil {
 		return fmt.Errorf("parsing instruction: %w", err)
 	}

@@ -23,6 +23,7 @@ type Config struct {
 	Logging         logger.Config   `toml:"logger"`
 	FlareTeeManager common.Address  `toml:"flare_tee_manager"`
 
+	ChainID    uint64 `toml:"chain_id"`
 	IsCosigner bool   `toml:"is_cosigner"`
 	Signer     Signer `toml:"signer"` // credentials for signer
 	FDC        FDC    `toml:"fdc"`
@@ -33,6 +34,14 @@ func (c *Config) CheckAddress() error {
 
 	if c.FlareTeeManager == zeroAddress {
 		return errors.New("FlareTeeManager address not set")
+	}
+
+	return nil
+}
+
+func (c *Config) CheckChainID() error {
+	if c.ChainID == 0 {
+		return errors.New("chain id should be a positive integer")
 	}
 
 	return nil

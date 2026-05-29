@@ -52,14 +52,14 @@ func parseTeeInstructionsSent(i database.Log) (*InstructionSentEvent, error) {
 }
 
 // ParseInstruction transforms database log to instruction Base.
-func ParseInstruction(il database.Log) (*Base, error) {
+func ParseInstruction(il database.Log, chainID uint64) (*Base, error) {
 	event, err := parseTeeInstructionsSent(il)
 	if err != nil {
 		return nil, err
 	}
 	var ib Base
 	ib.Event = event
-	ib.EventToData(il.Timestamp)
+	ib.EventToData(chainID, il.Timestamp)
 
 	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
 	return &ib, nil
@@ -70,10 +70,11 @@ func ParseInstruction(il database.Log) (*Base, error) {
 // TeeID has to be set later when preparing the instruction for a specific Tee.
 // AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
 // A slice of tees without duplicates is made.
-func (ib *Base) EventToData(timestamp uint64) {
+func (ib *Base) EventToData(chainID, timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		DataFixed: instruction.DataFixed{
 			InstructionID:      ib.Event.InstructionId,
+			ChainID:            chainID,
 			Timestamp:          timestamp,
 			RewardEpochID:      ib.Event.RewardEpochId,
 			OPType:             ib.Event.OpType,
