@@ -113,6 +113,13 @@ func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 	}
 
 	go func() {
+		// recover so a panic on one instruction cannot crash the relay
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Errorf("recovered panic processing instruction %s: %v", inLog.Topic2, rec)
+			}
+		}()
+
 		err := processor.Process(ctx, instr)
 		if err != nil {
 			logger.Errorf("processing instruction %s, %v", inLog.Topic2, err)

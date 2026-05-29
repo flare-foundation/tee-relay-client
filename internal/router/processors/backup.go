@@ -115,6 +115,11 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("checking wallet backup: %w", err)
 	}
 
+	// the blob's id must match the request-validated response id
+	if response.BackupID.Equal(&wBackup.WalletBackupID) != nil {
+		return errors.New("backup package wallet id does not match the response backup id")
+	}
+
 	ib.GeneralData.AdditionalFixedMessage, err = json.Marshal(wBackup.WalletBackupMetaData)
 	if err != nil {
 		return fmt.Errorf("marshaling wallet backup metadata: %w", err)
