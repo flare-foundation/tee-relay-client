@@ -1,11 +1,16 @@
 package instructions
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
+	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,5 +48,52 @@ func TestParseInstruction(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, hashes, 2)
 
+	// Golden: pin the prefix+chainID signing preimage for this fixed event. A
+	// change here means the signed hash changed and must be matched on-chain.
+	require.Equal(t, "0xf56e1e6e1b2402a990b7fcd389882bae8e23a8011db9d69b99580259c6d38277", hashes[0].Hex())
+	require.Equal(t, "0x393b89cfa8eab701688465549fa1057ac4ef73c846b71e8603a4a4316e593757", hashes[1].Hex())
+
 	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
+}
+
+// TestSignAndRecover signs an instruction through the real Base.Sign path and
+// recovers the operator address from each per-tee signature, proving the
+// prefix+chainID preimage round-trips. Recovering with the wrong chainID must
+// NOT yield the operator, proving chainID is actually bound into the signed hash.
+func TestSignAndRecover(t *testing.T) {
+	const chainID = uint64(14)
+
+	priv, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	operator := crypto.PubkeyToAddress(priv.PublicKey)
+
+	ib := &Base{
+		Tees: []teeinstructions.IMachineManagerTeeMachine{
+			{TeeId: common.HexToAddress("0x1111111111111111111111111111111111111111")},
+			{TeeId: common.HexToAddress("0x2222222222222222222222222222222222222222")},
+		},
+		GeneralData: instruction.Data{
+			DataFixed: instruction.DataFixed{
+				InstructionID: common.HexToHash("0xabc"),
+				Timestamp:     1718113274,
+			},
+		},
+	}
+
+	require.NoError(t, ib.Sign(context.Background(), signer.NewLocal(priv), chainID))
+	require.Len(t, ib.Signatures, len(ib.Tees))
+
+	for j := range ib.Tees {
+		data := ib.GeneralData
+		data.TeeID = ib.Tees[j].TeeId
+		instr := instruction.Instruction{Data: data, Signature: ib.Signatures[j]}
+
+		pub, err := instr.RecoverSignersPubKey(chainID)
+		require.NoError(t, err)
+		require.Equal(t, operator, crypto.PubkeyToAddress(*pub), "tee %d: operator must recover with the correct chainID", j)
+
+		wrongPub, err := instr.RecoverSignersPubKey(chainID + 1)
+		require.NoError(t, err)
+		require.NotEqual(t, operator, crypto.PubkeyToAddress(*wrongPub), "tee %d: wrong chainID must not recover the operator", j)
+	}
 }
