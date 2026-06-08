@@ -80,11 +80,14 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, _, err := fdc.HashMessage(h.chainID, fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
+	messageHash, _, err := fdc.HashMessage(h.chainID, fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing fdc message: %w", err)
 	}
 
+	// The chain recovers signatures against the Relay Mode-2 prefixed hash,
+	// not the bare messageHash.
+	hashToBeSigned := fdc.RelayPrefixedHash(messageHash)
 	signature, err := h.signer.Sign(ctx, []common.Hash{hashToBeSigned})
 	if err != nil {
 		return fmt.Errorf("signing response: %w", err)

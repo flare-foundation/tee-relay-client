@@ -153,6 +153,9 @@ func instClass(opType, opCommand common.Hash) InstructionClass {
 		return FDC
 	case t == op.Wallet && c == op.KeyDataProviderRestore:
 		return Backup
+	case t == op.Wallet && c == op.KeyDirectRestore:
+		// Spliced with the source-side envelope by the Backup processor.
+		return Backup
 	case op.IsValid(t, c):
 		return Plain
 	default:

@@ -43,10 +43,22 @@ func NewBackup(base *Base, allowUnsafeURLs bool) *Backup {
 	return &Backup{base: base, allowUnsafeURLs: allowUnsafeURLs}
 }
 
-// Process handles the backup restore flow for a TEE wallet.
-// It fetches backup data, decodes and decrypts it, prepares the message for TEE,
-// encrypts it for the TEE node, signs the message, and sends it to the output channel.
+// Process dispatches to the per-op restore handler.
 func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
+	switch op.HashToOPCommand(ib.Event.OpCommand) {
+	case op.KeyDataProviderRestore:
+		return b.processDataProviderRestore(ctx, ib)
+	case op.KeyDirectRestore:
+		return b.processDirectRestore(ctx, ib)
+	default:
+		return fmt.Errorf("backup processor: unsupported op command %s", common.Hash(ib.Event.OpCommand).Hex())
+	}
+}
+
+// processDataProviderRestore handles the legacy KEY_DATA_PROVIDER_RESTORE flow:
+// it fetches the backup, decrypts this data provider's key split, encrypts it
+// for the TEE, signs, and forwards.
+func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instructions.Base) error {
 	fullRequest, err := structs.Decode[wallet.IWalletBackupManagerKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding restore request: %w", err)
@@ -263,6 +275,75 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 
 	default:
 		return nil, nil
+	}
+}
+
+// processDirectRestore handles KEY_DIRECT_RESTORE: it fetches the source TEE's
+// direct-backup envelope from the source proxy's GET /action/result/{id} and
+// splices it onto AdditionalFixedMessage for the destination TEE.
+func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base) error {
+	req, err := structs.Decode[wallet.IWalletBackupManagerKeyDirectRestore](wallet.MessageArguments[op.KeyDirectRestore], ib.GeneralData.OriginalMessage)
+	if err != nil {
+		return fmt.Errorf("decoding direct restore request: %w", err)
+	}
+
+	backupActionID := common.BytesToHash(req.BackupInstructionId[:])
+	url := strings.TrimRight(req.SourceProxyUrl, "/") + "/action/result/" + backupActionID.Hex()
+
+	// SourceProxyUrl is on-chain / attacker-influenced, so guard against SSRF.
+	if !b.allowUnsafeURLs {
+		if err = safeurl.Validate(ctx, url); err != nil {
+			return fmt.Errorf("validating source proxy URL: %w", err)
+		}
+	}
+
+	var client *http.Client
+	if b.allowUnsafeURLs {
+		client = &http.Client{Timeout: 10 * time.Second}
+	} else {
+		client = safeurl.NewClient(10 * time.Second)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating direct backup fetch request: %w", err)
+	}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("fetching direct backup envelope from %s: %w", url, err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
+			respLimited := &io.LimitedReader{R: resp.Body, N: errorSizeLimit}
+			buf := new(strings.Builder)
+			if _, copyErr := io.Copy(buf, respLimited); copyErr == nil {
+				return fmt.Errorf("direct backup fetch responded with code %d, reason: %s", resp.StatusCode, buf.String())
+			}
+		}
+		return fmt.Errorf("direct backup fetch responded with code %d", resp.StatusCode)
+	}
+
+	respLimited := &io.LimitedReader{R: resp.Body, N: sizeLimit}
+	var actionResp types.ActionResponse
+	if err = json.NewDecoder(respLimited).Decode(&actionResp); err != nil {
+		return fmt.Errorf("decoding action response from source proxy: %w", err)
+	}
+
+	// Result.Data is the SignedKeyDirectBackup envelope the destination TEE expects.
+	ib.GeneralData.AdditionalFixedMessage = actionResp.Result.Data
+
+	if err = ib.Sign(ctx, b.base.signer, b.base.chainID); err != nil {
+		return fmt.Errorf("signing: %w", err)
+	}
+
+	select {
+	case b.base.out <- ib:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
