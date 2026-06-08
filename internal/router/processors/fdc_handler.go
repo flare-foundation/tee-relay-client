@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -70,11 +71,13 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	attResponse, success, err := v.Response(ctx, fullRequest)
 	if !success {
 		if err != nil {
-			logger.Debugf("verifier error for instruction %s of type: %s, source: %s,  %v", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), err)
+			// err can carry the verifier's response body; quote it so control
+			// characters cannot forge log lines.
+			logger.Warnf("verifier error for instruction %s of type: %s, source: %s, %s", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), strconv.Quote(err.Error()))
 			return fmt.Errorf("getting attestation response: %w", err)
 		}
 
-		logger.Debugf("verifier rejected request from instruction %s of type: %s, source: %s,  %v", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), err)
+		logger.Infof("verifier rejected request from instruction %s of type: %s, source: %s", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"))
 
 		return nil
 	}
@@ -93,7 +96,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("signing response: %w", err)
 	}
 
-	ib.GeneralData.AdditionalVariableMessage = signature[0] // if err != nil, len(signature)=1
+	ib.GeneralData.AdditionalVariableMessage = signature[0] // if err == nil, len(signature)=1
 
 	err = ib.Sign(ctx, h.signer, h.chainID)
 	if err != nil {

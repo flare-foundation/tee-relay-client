@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -93,7 +94,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 			buf := new(strings.Builder)
 			_, err := io.Copy(buf, respLimited)
 			if err == nil {
-				return fmt.Errorf("request responded with code %d, reason: %s", resp.StatusCode, buf.String())
+				return fmt.Errorf("request responded with code %d, reason: %s", resp.StatusCode, strconv.Quote(buf.String()))
 			}
 		}
 
@@ -320,7 +321,7 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 			respLimited := &io.LimitedReader{R: resp.Body, N: errorSizeLimit}
 			buf := new(strings.Builder)
 			if _, copyErr := io.Copy(buf, respLimited); copyErr == nil {
-				return fmt.Errorf("direct backup fetch responded with code %d, reason: %s", resp.StatusCode, buf.String())
+				return fmt.Errorf("direct backup fetch responded with code %d, reason: %s", resp.StatusCode, strconv.Quote(buf.String()))
 			}
 		}
 		return fmt.Errorf("direct backup fetch responded with code %d", resp.StatusCode)

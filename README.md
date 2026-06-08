@@ -13,7 +13,7 @@
 # TEE relay client
 
 TEE relay client is a connector between smart contracts on Flare's C-chain and TEE clients.
-It listens to `TeeInstructionsSent` events emitted by the `TeeExtensionRegistry` smart contract, processes them, and forwards them to the TEE nodes.
+It listens to `TeeInstructionsSent` events emitted by the `FlareTeeManager` smart contract, processes them, and forwards them to the TEE nodes.
 
 ## Running
 
@@ -62,7 +62,7 @@ is_cosigner = true
 
 ### FlareTeeManager address
 
-Address of the `TeeExtensionRegistry` smart contract to listen to:
+Address of the `FlareTeeManager` smart contract to listen to:
 
 ```toml
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
@@ -118,12 +118,15 @@ The private key is held by an external signer service (typically the FSP client)
 ```toml
 [signer]
 local = false
-url = "http://signer-host:port"
+url = "https://signer-host:port"
 key_name = "X-API-KEY"
 key = "<api-key>"
 ```
 
 The external signer URL is operator-controlled and may point to a local address.
+Use `https` for any non-loopback host: the API key and the `/decrypt` plaintext
+(key-split secret material) would otherwise transit in cleartext. `http` is
+acceptable only for a loopback address.
 
 The signer service must expose three endpoints:
 
@@ -194,12 +197,14 @@ time_off = "2s"
 type = "AttestationTypeExampleName"
 source = "ExampleSource"
 queue = "exampleQueue"
-server.url = "http://verifier-host/path/to/endpoint"
+server.url = "https://verifier-host/path/to/endpoint"
 server.key_name = "X-API-KEY"
 server.key = "exampleKey"
 ```
 
 Verifier server URLs are operator-controlled and may point to local addresses.
+Use `https` for any non-loopback host so the API key and request/response bodies
+are not sent in cleartext; `http` is acceptable only for a loopback address.
 
 ### Logging
 
