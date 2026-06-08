@@ -154,7 +154,7 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 
 	ib.GeneralData.AdditionalVariableMessage = cipher
 
-	err = ib.Sign(ctx, b.base.signer)
+	err = ib.Sign(ctx, b.base.signer, b.base.chainID)
 	if err != nil {
 		return fmt.Errorf("signing: %w", err)
 	}

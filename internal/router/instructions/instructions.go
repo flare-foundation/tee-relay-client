@@ -56,14 +56,14 @@ func parseTeeInstructionsSent(i database.Log) (*InstructionSentEvent, error) {
 }
 
 // ParseInstruction transforms database log to instruction Base.
-func ParseInstruction(il database.Log, chainID uint64) (*Base, error) {
+func ParseInstruction(il database.Log) (*Base, error) {
 	event, err := parseTeeInstructionsSent(il)
 	if err != nil {
 		return nil, err
 	}
 	var ib Base
 	ib.Event = event
-	ib.EventToData(chainID, il.Timestamp)
+	ib.EventToData(il.Timestamp)
 
 	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
 	return &ib, nil
@@ -74,11 +74,10 @@ func ParseInstruction(il database.Log, chainID uint64) (*Base, error) {
 // TeeID has to be set later when preparing the instruction for a specific Tee.
 // AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
 // A slice of tees without duplicates is made.
-func (ib *Base) EventToData(chainID, timestamp uint64) {
+func (ib *Base) EventToData(timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		DataFixed: instruction.DataFixed{
 			InstructionID:      ib.Event.InstructionId,
-			ChainID:            chainID,
 			Timestamp:          timestamp,
 			RewardEpochID:      ib.Event.RewardEpochId,
 			OPType:             ib.Event.OpType,
@@ -96,7 +95,7 @@ func (ib *Base) EventToData(chainID, timestamp uint64) {
 // HashesForSigning prepares hashes of instruction data that are to be signed.
 //
 // Place of the hash corresponds to the place of TeeMachine in event where duplicates are removed.
-func (ib *Base) hashesForSigning() ([]common.Hash, error) {
+func (ib *Base) hashesForSigning(chainID uint64) ([]common.Hash, error) {
 	data := ib.GeneralData
 
 	hashes := make([]common.Hash, len(ib.Tees))
@@ -104,7 +103,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 
 	for j := range ib.Tees {
 		data.TeeID = ib.Tees[j].TeeId
-		hashes[j], err = data.HashForSigning()
+		hashes[j], err = data.HashForSigning(chainID)
 		if err != nil {
 			return nil, fmt.Errorf("hash of %v: %w", data, err)
 		}
@@ -113,10 +112,10 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 }
 
 // Sign sets signatures of instructions for each Tee.
-func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
+func (ib *Base) Sign(ctx context.Context, s signer.Signer, chainID uint64) error {
 	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
 
-	toSign, err := ib.hashesForSigning()
+	toSign, err := ib.hashesForSigning(chainID)
 	if err != nil {
 		return fmt.Errorf("preparing: %w", err)
 	}

@@ -30,7 +30,7 @@ func TestParseInstruction(t *testing.T) {
 	err := json.Unmarshal([]byte(eventDBjson), &event)
 	require.NoError(t, err)
 
-	ib, err := ParseInstruction(event, chainID)
+	ib, err := ParseInstruction(event)
 	require.NoError(t, err)
 
 	require.Len(t, ib.Signatures, 0)
@@ -39,7 +39,7 @@ func TestParseInstruction(t *testing.T) {
 	require.Equal(t, uint64(1718113274), ib.GeneralData.Timestamp)
 	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
 
-	hashes, err := ib.hashesForSigning()
+	hashes, err := ib.hashesForSigning(chainID)
 	require.NoError(t, err)
 	require.Len(t, hashes, 2)
 

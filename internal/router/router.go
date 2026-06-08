@@ -30,8 +30,6 @@ const (
 type Router struct {
 	Filterer
 
-	chainID uint64
-
 	baseProcessor   *processors.Base
 	fdcProcessor    *processors.FDC
 	backupProcessor *processors.Backup
@@ -42,10 +40,8 @@ func NewRouter(signer signer.Signer, chainID uint64, fdcCfg *config.FDC, filtere
 	r := new(Router)
 
 	r.Filterer = filterer
-	r.baseProcessor = processors.NewBase(signer)
+	r.baseProcessor = processors.NewBase(chainID, signer)
 	r.backupProcessor = processors.NewBackup(r.baseProcessor, allowUnsafeURLs)
-
-	r.chainID = chainID
 
 	var err error
 	r.fdcProcessor, err = processors.NewFDC(fdcCfg, r.baseProcessor)
@@ -100,7 +96,7 @@ func (router *Router) Run(ctx context.Context, in <-chan []database.Log, out cha
 
 // Handle parses, processes instruction log.
 func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
-	instr, err := instructions.ParseInstruction(inLog, r.chainID)
+	instr, err := instructions.ParseInstruction(inLog)
 	if err != nil {
 		return fmt.Errorf("parsing instruction: %w", err)
 	}

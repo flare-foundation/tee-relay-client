@@ -80,7 +80,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	}
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
-	hashToBeSigned, _, _, _, err := fdc.HashMessage(fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp, ib.GeneralData.ChainID)
+	hashToBeSigned, _, err := fdc.HashMessage(h.chainID, fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing fdc message: %w", err)
 	}
@@ -92,7 +92,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 
 	ib.GeneralData.AdditionalVariableMessage = signature[0] // if err != nil, len(signature)=1
 
-	err = ib.Sign(ctx, h.signer)
+	err = ib.Sign(ctx, h.signer, h.chainID)
 	if err != nil {
 		return fmt.Errorf("signing instruction: %w", err)
 	}
