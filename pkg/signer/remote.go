@@ -17,8 +17,9 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
-const timeout = 5 * time.Second // maximal duration for the server to resolve the query
-const bytesPerSignature = 140   // TODO: make this more restrictive?
+const timeout = 5 * time.Second   // maximal duration for the server to resolve the query
+const bytesPerSignature = 140     // TODO: make this more restrictive?
+const errBodyDrainLimit = 4 << 10 // 4 KiB cap when draining an error response body for connection reuse
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
 // Remote holds credentials for the signer server.
@@ -87,6 +88,9 @@ func idCallFactory(client *http.Client, req *http.Request) func() (io.ReadCloser
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			// drain (bounded) and close so the connection can be reused on retry
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, errBodyDrainLimit))
+			resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
 			return nil, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
 		}
 
