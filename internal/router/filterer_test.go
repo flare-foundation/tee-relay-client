@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
@@ -30,7 +30,7 @@ func TestFilterer(t *testing.T) {
 		ExtensionId:        &big.Int{},
 		InstructionId:      [32]byte{},
 		RewardEpochId:      0,
-		TeeMachines:        []teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		TeeMachines:        []teeinstructions.IMachineManagerTeeMachine{},
 		OpType:             [32]byte{},
 		OpCommand:          [32]byte{},
 		Message:            []byte{},
@@ -44,7 +44,7 @@ func TestFilterer(t *testing.T) {
 		ExtensionId:        &big.Int{},
 		InstructionId:      [32]byte{},
 		RewardEpochId:      0,
-		TeeMachines:        []teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		TeeMachines:        []teeinstructions.IMachineManagerTeeMachine{},
 		OpType:             [32]byte{},
 		OpCommand:          [32]byte{},
 		Message:            []byte{},

@@ -1,3 +1,4 @@
+// Package router routes parsed instruction logs to their processors.
 package router
 
 import (
@@ -14,9 +15,10 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
-// Instruction Class refers to an implementation of Instruction interface.
+// InstructionClass selects which processor implementation handles an instruction.
 type InstructionClass int
 
+// InstructionClass values enumerate the supported instruction classes.
 const (
 	Invalid InstructionClass = iota
 	Plain
@@ -34,12 +36,12 @@ type Router struct {
 }
 
 // NewRouter assembles Router from configs.
-func NewRouter(signer signer.Signer, fdcCfg *config.FDC, filterer Filterer) (*Router, error) {
+func NewRouter(signer signer.Signer, chainID uint64, fdcCfg *config.FDC, filterer Filterer, allowUnsafeURLs bool) (*Router, error) {
 	r := new(Router)
 
 	r.Filterer = filterer
-	r.baseProcessor = processors.NewBase(signer)
-	r.backupProcessor = processors.NewBackup(r.baseProcessor)
+	r.baseProcessor = processors.NewBase(chainID, signer)
+	r.backupProcessor = processors.NewBackup(r.baseProcessor, allowUnsafeURLs)
 
 	var err error
 	r.fdcProcessor, err = processors.NewFDC(fdcCfg, r.baseProcessor)
@@ -109,6 +111,13 @@ func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 	}
 
 	go func() {
+		// recover so a panic on one instruction cannot crash the relay
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Errorf("recovered panic processing instruction %s: %v", inLog.Topic2, rec)
+			}
+		}()
+
 		err := processor.Process(ctx, instr)
 		if err != nil {
 			logger.Errorf("processing instruction %s, %v", inLog.Topic2, err)
@@ -143,6 +152,9 @@ func instClass(opType, opCommand common.Hash) InstructionClass {
 	case t == op.FDC2 && c == op.Prove:
 		return FDC
 	case t == op.Wallet && c == op.KeyDataProviderRestore:
+		return Backup
+	case t == op.Wallet && c == op.KeyDirectRestore:
+		// Spliced with the source-side envelope by the Backup processor.
 		return Backup
 	case op.IsValid(t, c):
 		return Plain

@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-relay-client/internal/router"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
@@ -39,13 +38,8 @@ func TestPrepareInstruction(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	cfg := signer.Config{
-		Addr:       ":8080",
-		APIKeyName: "X-API-KEY",
-		APIKeys:    []string{"123"},
-	}
-
-	signerServer, cred := testutils.NewTestSigner(cfg, prv)
+	signerServer, cred, err := testutils.NewTestSigner(prv)
+	require.NoError(t, err)
 
 	go func() {
 		err := signerServer.Run(ctx)
@@ -57,11 +51,11 @@ func TestPrepareInstruction(t *testing.T) {
 		Verifiers: map[string]config.Verifier{},
 	}
 
-	s := &rsigner.Remote{
-		Credentials: cred,
-	}
+	s := rsigner.NewRemote(cred)
 
-	r, err := router.NewRouter(s, &fdcCfg, nil)
+	chainID := uint64(14)
+
+	r, err := router.NewRouter(s, chainID, &fdcCfg, nil, false)
 	require.NoError(t, err)
 
 	out := make(chan *instructions.Base, 2)

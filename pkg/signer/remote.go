@@ -17,14 +17,23 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
-const timeout = 5 * time.Second // maximal duration for the server to resolve the query
-const bytesPerSignature = 140   // TODO: make this more restrictive?
+const timeout = 5 * time.Second   // maximal duration for the server to resolve the query
+const bytesPerSignature = 140     // TODO: make this more restrictive?
+const errBodyDrainLimit = 4 << 10 // 4 KiB cap when draining an error response body for connection reuse
 // const maxRespSize = 1 << 20     // 1 MB for maximal response size of the server
 
-// Signer holds credentials for the signer server.
-type Remote struct{ *config.Credentials }
+// Remote holds credentials for the signer server.
+// The signer URL is operator-controlled config, so no SSRF protection is applied.
+type Remote struct {
+	*config.Credentials
+}
 
 var _ Signer = &Remote{}
+
+// NewRemote creates a Remote signer.
+func NewRemote(creds *config.Credentials) *Remote {
+	return &Remote{Credentials: creds}
+}
 
 // Sign sends hashes to signer and returns the corresponding signatures.
 func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
@@ -79,6 +88,9 @@ func idCallFactory(client *http.Client, req *http.Request) func() (io.ReadCloser
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			// drain (bounded) and close so the connection can be reused on retry
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, errBodyDrainLimit))
+			resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
 			return nil, fmt.Errorf("unsuccessful status code %d", resp.StatusCode)
 		}
 
@@ -99,7 +111,7 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	request.Header.Set(r.KeyName, r.Key)
 	request.Header.Set("Content-Type", "application/json")
 
-	re := retry.Execute(context.Background(), idCallFactory(client, request), retry.Params{
+	re := retry.Execute(ctx, idCallFactory(client, request), retry.Params{
 		MaxAttempts: 3,
 		Delay:       5 * time.Second,
 		Timeout:     20 * time.Second,

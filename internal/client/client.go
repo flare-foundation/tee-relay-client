@@ -1,3 +1,4 @@
+// Package client wires together the collector, router, and sender.
 package client
 
 import (
@@ -13,9 +14,11 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
+// Client collects logs, routes them, and sends the results.
 type Client struct {
-	collector *collector.Collector
-	router    *router.Router
+	collector       *collector.Collector
+	router          *router.Router
+	allowUnsafeURLs bool
 }
 
 // New creates new Client from configs.
@@ -35,15 +38,16 @@ func New(cfg config.Config) (*Client, error) {
 		return nil, fmt.Errorf("could not set filterer: %w", err)
 	}
 
-	c := collector.New(db, cfg.TeeExtensionRegistry)
-	r, err := router.NewRouter(sgnr, &cfg.FDC, filterer)
+	c := collector.New(db, cfg.FlareTeeManager)
+	r, err := router.NewRouter(sgnr, cfg.ChainID, &cfg.FDC, filterer, cfg.AllowUnsafeURLs)
 	if err != nil {
 		return nil, fmt.Errorf("could not create router: %w", err)
 	}
 
 	return &Client{
-		collector: c,
-		router:    r,
+		collector:       c,
+		router:          r,
+		allowUnsafeURLs: cfg.AllowUnsafeURLs,
 	}, nil
 }
 
@@ -58,7 +62,7 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 
 	c.router.Run(ctx, cToR, rToS)
-	sender.Run(ctx, rToS)
+	sender.Run(ctx, rToS, c.allowUnsafeURLs)
 
 	return nil
 }
@@ -71,13 +75,11 @@ func setSigner(cfg *config.Signer) (signer.Signer, error) {
 		}
 
 		return signer.NewLocal(priv), nil
-	} else {
-		if err := cfg.Check(); err != nil {
-			return nil, fmt.Errorf("checking signer credentials: %w", err)
-		}
-
-		return &signer.Remote{
-			Credentials: &cfg.Credentials,
-		}, nil
 	}
+
+	if err := cfg.Check(); err != nil {
+		return nil, fmt.Errorf("checking signer credentials: %w", err)
+	}
+
+	return signer.NewRemote(&cfg.Credentials), nil
 }

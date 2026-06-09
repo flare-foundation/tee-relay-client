@@ -18,6 +18,7 @@ type FDC struct {
 	handler       *FDCHandler
 }
 
+// NewFDC returns an FDC built from cfg and base; a nil cfg yields an FDC with no queues or verifiers.
 func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 	if cfg == nil {
 		handler, err := NewFDCHandler(base, nil)
@@ -89,7 +90,10 @@ func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 	if !exits { // should be impossible
 		return fmt.Errorf("no queue for: %v", id)
 	}
-	q.Add(ib, Weight{time.Now()})
+	_, err = q.Add(ctx, ib, Weight{time.Now()})
+	if err != nil {
+		return fmt.Errorf("adding to queue %v: %w", queueName, err)
+	}
 
 	return nil
 }

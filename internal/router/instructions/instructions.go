@@ -1,3 +1,4 @@
+// Package instructions parses and signs TEE instruction events from the indexer database.
 package instructions
 
 import (
@@ -7,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -16,21 +17,24 @@ import (
 )
 
 // teeFilterer is only used for TeeInstructionSent logs parsing. Set in init().
-var teeFilterer *teeextensionregistry.TeeExtensionRegistryFilterer
+var teeFilterer *teeinstructions.InstructionsFilterer
 
-type InstructionSentEvent = teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent
+// InstructionSentEvent is the parsed TeeInstructionsSent log.
+type InstructionSentEvent = teeinstructions.InstructionsTeeInstructionsSent
+
+// Base holds a TEE instruction event together with its parsed data and signatures.
 type Base struct {
 	Event       *InstructionSentEvent
-	Tees        []teeextensionregistry.ITeeMachineRegistryTeeMachine
+	Tees        []teeinstructions.IMachineManagerTeeMachine
 	GeneralData instruction.Data // Data without TeeID
 	Signatures  []hexutil.Bytes
 }
 
-// init sets the fdcFilterer.
+// init sets the teeFilterer.
 func init() {
 	var err error
 
-	teeFilterer, err = teeextensionregistry.NewTeeExtensionRegistryFilterer(common.Address{}, nil)
+	teeFilterer, err = teeinstructions.NewInstructionsFilterer(common.Address{}, nil)
 	if err != nil {
 		panic("cannot get tee instructions filterer: " + err.Error())
 	}
@@ -91,7 +95,7 @@ func (ib *Base) EventToData(timestamp uint64) {
 // HashesForSigning prepares hashes of instruction data that are to be signed.
 //
 // Place of the hash corresponds to the place of TeeMachine in event where duplicates are removed.
-func (ib *Base) hashesForSigning() ([]common.Hash, error) {
+func (ib *Base) hashesForSigning(chainID uint64) ([]common.Hash, error) {
 	data := ib.GeneralData
 
 	hashes := make([]common.Hash, len(ib.Tees))
@@ -99,7 +103,7 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 
 	for j := range ib.Tees {
 		data.TeeID = ib.Tees[j].TeeId
-		hashes[j], err = data.HashForSigning()
+		hashes[j], err = data.HashForSigning(chainID)
 		if err != nil {
 			return nil, fmt.Errorf("hash of %v: %w", data, err)
 		}
@@ -107,11 +111,11 @@ func (ib *Base) hashesForSigning() ([]common.Hash, error) {
 	return hashes, nil
 }
 
-// sign sets signatures of instructions for each Tee.
-func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
+// Sign sets signatures of instructions for each Tee.
+func (ib *Base) Sign(ctx context.Context, s signer.Signer, chainID uint64) error {
 	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
 
-	toSign, err := ib.hashesForSigning()
+	toSign, err := ib.hashesForSigning(chainID)
 	if err != nil {
 		return fmt.Errorf("preparing: %w", err)
 	}
@@ -126,9 +130,9 @@ func (ib *Base) Sign(ctx context.Context, s signer.Signer) error {
 }
 
 // removeDuplicates creates a new array from s without duplicated entries.
-func removeDuplicates(s []teeextensionregistry.ITeeMachineRegistryTeeMachine) []teeextensionregistry.ITeeMachineRegistryTeeMachine {
-	set := make(map[teeextensionregistry.ITeeMachineRegistryTeeMachine]bool)
-	unique := make([]teeextensionregistry.ITeeMachineRegistryTeeMachine, 0, len(s))
+func removeDuplicates(s []teeinstructions.IMachineManagerTeeMachine) []teeinstructions.IMachineManagerTeeMachine {
+	set := make(map[teeinstructions.IMachineManagerTeeMachine]bool)
+	unique := make([]teeinstructions.IMachineManagerTeeMachine, 0, len(s))
 	for j := range s {
 		if !set[s[j]] {
 			set[s[j]] = true

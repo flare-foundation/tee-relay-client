@@ -1,3 +1,4 @@
+// Package collector listens for TeeInstructionsSent events in the indexer database.
 package collector
 
 import (
@@ -6,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/gorm"
@@ -15,15 +16,16 @@ import (
 const startInterval = 100               // TODO: set it; indexing starts from the last block minus start interval
 const requestInterval = 2 * time.Second // TODO: set the frequency of database requests
 
+// TeeInstructionsSentSel is the event selector (topic0) of the TeeInstructionsSent event.
 var TeeInstructionsSentSel common.Hash // set in init
 
 func init() {
-	teeExtensionRegistryABI, err := teeextensionregistry.TeeExtensionRegistryMetaData.GetAbi()
+	teeInstructionsABI, err := teeinstructions.InstructionsMetaData.GetAbi()
 	if err != nil {
-		panic("getting teeExtensionRegistryABI abi: " + err.Error())
+		panic("getting teeInstructionsABI abi: " + err.Error())
 	}
 
-	event, exits := teeExtensionRegistryABI.Events["TeeInstructionsSent"]
+	event, exits := teeInstructionsABI.Events["TeeInstructionsSent"]
 	if !exits {
 		panic("invalid event TeeInstructionsSent")
 	}
@@ -31,14 +33,15 @@ func init() {
 	TeeInstructionsSentSel = event.ID
 }
 
+// Collector listens for TeeInstructionsSent events emitted by the FlareTeeManager in the indexer database.
 type Collector struct {
-	DB                   *gorm.DB // c-chain indexer db
-	teeExtensionRegistry common.Address
+	DB              *gorm.DB // c-chain indexer db
+	flareTeeManager common.Address
 }
 
 // New creates a new Collector that connects to database.
-func New(db *gorm.DB, teeExtensionRegistry common.Address) *Collector {
-	collector := Collector{DB: db, teeExtensionRegistry: teeExtensionRegistry}
+func New(db *gorm.DB, flareTeeManager common.Address) *Collector {
+	collector := Collector{DB: db, flareTeeManager: flareTeeManager}
 
 	return &collector
 }
@@ -52,21 +55,21 @@ func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
 		MinSleepTime:       5 * time.Second,
 	}
 
-	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.GetLogger())
+	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger())
 	if err != nil {
 		return fmt.Errorf("waiting for indexer to sync: %w", err)
 	}
 
-	go instructionsListener(ctx, c.DB, c.teeExtensionRegistry, requestInterval, out)
+	go instructionsListener(ctx, c.DB, c.flareTeeManager, requestInterval, out)
 
 	return nil
 }
 
-// instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by TeeExtensionRegistry smart contracts and pushes them on to the instructions instructions channel.
+// instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by the FlareTeeManager diamond and pushes them on to the instructions channel.
 func instructionsListener(
 	ctx context.Context,
 	db *gorm.DB,
-	teeExtensionRegistry common.Address,
+	flareTeeManager common.Address,
 	listenerInterval time.Duration,
 	out chan<- []database.Log,
 ) {
@@ -81,7 +84,7 @@ func instructionsListener(
 	lastQueriedIndex := max(0, state.Index-startInterval)
 
 	params := database.LogsParams{
-		Address: teeExtensionRegistry,
+		Address: flareTeeManager,
 		Topic0:  TeeInstructionsSentSel,
 		From:    int64(lastQueriedIndex),
 		To:      int64(state.Index),

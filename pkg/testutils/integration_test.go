@@ -26,12 +26,14 @@ func TestIntegration(t *testing.T) {
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
+	chainID := uint64(14)
+
 	sgnr := signer.NewLocal(prv)
 
 	f, err := router.NewFilterer(false, sgnr)
 	require.NoError(t, err)
 
-	rtr, err := router.NewRouter(sgnr, nil, f)
+	rtr, err := router.NewRouter(sgnr, chainID, nil, f, false)
 	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")
@@ -77,6 +79,8 @@ func TestIntegration(t *testing.T) {
 func TestIntegrationCosigner(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 
+	chainID := uint64(14)
+
 	prv, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
@@ -85,7 +89,7 @@ func TestIntegrationCosigner(t *testing.T) {
 	f, err := router.NewFilterer(true, sgnr)
 	require.NoError(t, err)
 
-	rtr, err := router.NewRouter(sgnr, nil, f)
+	rtr, err := router.NewRouter(sgnr, chainID, nil, f, false)
 	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")

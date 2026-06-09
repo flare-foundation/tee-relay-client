@@ -12,6 +12,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
+// Filterer decides whether an InstructionSent event should be processed.
 type Filterer interface {
 	Filter(*instructions.InstructionSentEvent) bool // Filter returns true if the event should not be processed.
 }
@@ -21,6 +22,7 @@ type ProviderFilterer struct{}
 
 var _ Filterer = &ProviderFilterer{}
 
+// Filter always returns false, so every event is processed.
 func (pf *ProviderFilterer) Filter(event *instructions.InstructionSentEvent) bool {
 	return false
 }
@@ -30,6 +32,7 @@ type CosignerFilterer struct{ Address common.Address }
 
 var _ Filterer = &CosignerFilterer{}
 
+// Filter returns true for events whose cosigners do not include the configured address.
 func (cf *CosignerFilterer) Filter(event *instructions.InstructionSentEvent) bool {
 	return !slices.Contains(event.Cosigners, cf.Address)
 }

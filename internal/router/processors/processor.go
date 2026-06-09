@@ -1,3 +1,4 @@
+// Package processors processes router instructions for FDC, backup and base flows.
 package processors
 
 import (
@@ -17,18 +18,22 @@ type Processor interface {
 
 // Base provides common logic for instruction processing, including signing and out channel for processed instructions.
 type Base struct {
+	chainID uint64
 	// signer is used for signing instructions.
 	signer signer.Signer
 	// out is the channel to send processed instructions.
 	out chan<- *instructions.Base
 }
 
-func NewBase(signer signer.Signer) (b *Base) {
+// NewBase returns a Base that signs with signer; the out channel must be set separately via SetOut.
+func NewBase(chainID uint64, signer signer.Signer) (b *Base) {
 	return &Base{
-		signer: signer,
+		chainID: chainID,
+		signer:  signer,
 	}
 }
 
+// SetOut sets the output channel for processed instructions.
 func (b *Base) SetOut(out chan<- *instructions.Base) {
 	b.out = out
 }
@@ -39,7 +44,7 @@ func (b *Base) Process(ctx context.Context, ib *instructions.Base) error {
 		return errors.New("out channel not set")
 	}
 
-	err := ib.Sign(ctx, b.signer)
+	err := ib.Sign(ctx, b.signer, b.chainID)
 	if err != nil {
 		return fmt.Errorf("signing: %w", err)
 	}

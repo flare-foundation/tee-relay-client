@@ -13,6 +13,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/types"
 )
 
+// Local is a Signer backed by an in-process ECDSA private key.
 type Local struct {
 	priv *ecdsa.PrivateKey
 }

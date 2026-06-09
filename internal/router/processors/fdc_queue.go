@@ -14,6 +14,7 @@ import (
 // An item has higher priority if it has arrived earlier.
 type Weight struct{ time.Time }
 
+// Self returns the Weight itself.
 func (w Weight) Self() Weight {
 	return w
 }
@@ -23,6 +24,7 @@ func (w Weight) Less(t Weight) bool {
 	return t.Before(w.Time)
 }
 
+// FDCQueue is a priority queue of FDC instructions ordered by Weight.
 type FDCQueue struct {
 	*priority.PriorityQueue[*instructions.Base, Weight]
 }
@@ -31,9 +33,10 @@ type FDCQueue struct {
 func NewQueue(params priority.Params, name string) *FDCQueue {
 	queue := priority.New[*instructions.Base, Weight](params, name)
 
-	return &FDCQueue{&queue}
+	return &FDCQueue{queue}
 }
 
+// Handler handles a dequeued instruction.
 type Handler interface {
 	Handle(context.Context, *instructions.Base) error
 }
