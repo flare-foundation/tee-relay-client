@@ -123,7 +123,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 		return fmt.Errorf("unmarshaling wallet backup: %w", err)
 	}
 
-	err = wBackup.Check()
+	err = wBackup.Check(b.base.chainID)
 	if err != nil {
 		return fmt.Errorf("checking wallet backup: %w", err)
 	}
@@ -194,7 +194,7 @@ func (b *Backup) decryptKeySplit(ctx context.Context, cipher []byte) (backup.Key
 		return keySplit, fmt.Errorf("unmarshaling key split: %w", err)
 	}
 
-	err = keySplit.VerifySignature()
+	err = keySplit.VerifySignature(b.base.chainID)
 	if err != nil {
 		return keySplit, fmt.Errorf("verifying key split signature: %w", err)
 	}
