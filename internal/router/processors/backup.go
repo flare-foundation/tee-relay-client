@@ -1,6 +1,7 @@
 package processors
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
+	"github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -25,6 +27,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 
 	"github.com/flare-foundation/tee-node/pkg/types"
+	"github.com/flare-foundation/tee-node/pkg/utils"
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
 )
@@ -87,6 +90,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 	if err != nil {
 		return fmt.Errorf("fetching backup: %w", err)
 	}
+	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
@@ -101,12 +105,13 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 		return fmt.Errorf("request responded with code %d", resp.StatusCode)
 	}
 
-	respLimited := &io.LimitedReader{R: resp.Body, N: sizeLimit}
-	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
+	respLimited := &io.LimitedReader{
+		R: resp.Body,
+		N: sizeLimit,
+	}
 
 	decoder := json.NewDecoder(respLimited)
 	response := new(wallets.TEEBackupResponse)
-
 	err = decoder.Decode(response)
 	if err != nil {
 		return fmt.Errorf("decoding backup response: %w", err)
@@ -202,6 +207,44 @@ func (b *Backup) decryptKeySplit(ctx context.Context, cipher []byte) (backup.Key
 	return keySplit, nil
 }
 
+// checkConsistency checks that the fields in the restore request match those in the wallet backup ID.
+func checkConsistency(request wallet.IWalletBackupManagerKeyDataProviderRestore, id wallets.WalletBackupID, tees []teeinstructions.IMachineManagerTeeMachine) error {
+	pk, err := types.ParsePubKey(types.PublicKey{
+		X: request.TeePublicKey.X,
+		Y: request.TeePublicKey.Y,
+	})
+	if err != nil {
+		return fmt.Errorf("parsing TEE public key: %w", err)
+	}
+
+	recoveredTeeID := crypto.PubkeyToAddress(*pk)
+
+	switch {
+	case len(tees) != 1:
+		return errors.New("restore can only be requested on one tee per instruction")
+	case recoveredTeeID != tees[0].TeeId:
+		return errors.New("provided public key does not match the destination tee")
+	case request.BackupId.TeeId != id.TeeID:
+		return errors.New("teeID in the request does not match the teeID in the wallet backup id")
+	case common.Hash(request.BackupId.WalletId) != id.WalletID:
+		return errors.New("walletID in the request does not match the walletID in the wallet backup id")
+	case request.BackupId.KeyId != id.KeyID:
+		return errors.New("keyID in the request does not match the keyID in the wallet backup id")
+	case !slices.Equal(request.BackupId.PublicKey, id.PublicKey):
+		return errors.New("publicKey in the request does not match the publicKey in the wallet backup id")
+	case common.Hash(request.BackupId.KeyType) != id.KeyType:
+		return errors.New("keyType in the request does not match the keyType in the wallet backup id")
+	case common.Hash(request.BackupId.SigningAlgo) != id.SigningAlgo:
+		return errors.New("signingAlgo in the request does not match the signingAlgo in the wallet backup id")
+	case request.BackupId.RewardEpochId != id.RewardEpochID:
+		return errors.New("rewardEpochID in the request does not match the rewardEpochID in the wallet backup id")
+	case common.Hash(request.BackupId.RandomNonce) != id.RandomNonce:
+		return errors.New("randomNonce in the request does not match the randomNonce in the wallet backup id")
+	default:
+		return nil
+	}
+}
+
 // plaintextForTEE returns the decrypted key splits for the TEE node, based on the wallet backup and public key.
 // It finds the relevant encrypted parts, decrypts them, and marshals the result.
 // If the public key is both among the provider and admin owners, it returns marshaled array of both split.
@@ -283,6 +326,10 @@ func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk
 // direct-backup envelope from the source proxy's GET /action/result/{id} and
 // splices it onto AdditionalFixedMessage for the destination TEE.
 func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base) error {
+	if len(ib.Tees) != 1 {
+		return errors.New("direct restore is only possible to one destination")
+	}
+
 	req, err := structs.Decode[wallet.IWalletBackupManagerKeyDirectRestore](wallet.MessageArguments[op.KeyDirectRestore], ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding direct restore request: %w", err)
@@ -312,13 +359,16 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("fetching direct backup envelope from %s: %w", url, err)
+		return fmt.Errorf("fetching direct backup envelope from %s: %w", strconv.Quote(url), err)
 	}
 	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
-			respLimited := &io.LimitedReader{R: resp.Body, N: errorSizeLimit}
+			respLimited := &io.LimitedReader{
+				R: resp.Body,
+				N: errorSizeLimit,
+			}
 			buf := new(strings.Builder)
 			if _, copyErr := io.Copy(buf, respLimited); copyErr == nil {
 				return fmt.Errorf("direct backup fetch responded with code %d, reason: %s", resp.StatusCode, strconv.Quote(buf.String()))
@@ -327,14 +377,43 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 		return fmt.Errorf("direct backup fetch responded with code %d", resp.StatusCode)
 	}
 
-	respLimited := &io.LimitedReader{R: resp.Body, N: sizeLimit}
+	respLimited := &io.LimitedReader{
+		R: resp.Body,
+		N: sizeLimit,
+	}
 	var actionResp types.ActionResponse
 	if err = json.NewDecoder(respLimited).Decode(&actionResp); err != nil {
 		return fmt.Errorf("decoding action response from source proxy: %w", err)
 	}
 
+	if err := validateActionResponseDirect(actionResp, b.base.chainID, req.SourceTeeId, req.BackupInstructionId); err != nil {
+		return fmt.Errorf("validating backup action response: %w", err)
+	}
+
 	// Result.Data is the SignedKeyDirectBackup envelope the destination TEE expects.
 	ib.GeneralData.AdditionalFixedMessage = actionResp.Result.Data
+
+	var skdb types.SignedKeyDirectBackup
+	if err := json.Unmarshal(actionResp.Result.Data, &skdb); err != nil {
+		return fmt.Errorf("unmarshaling SignedKeyDirectBackup: %w", err)
+	}
+
+	prefixedHash, err := signing.NewPayload(signing.TEEKeyDirectBackup, b.base.chainID, crypto.Keccak256Hash(skdb.Payload)).Hash()
+	if err != nil {
+		return fmt.Errorf("retrieving SignedKeyDirectBackup Payload hash: %w", err)
+	}
+	if err := utils.VerifySignature(prefixedHash[:], skdb.TEESignature, req.SourceTeeId); err != nil {
+		return fmt.Errorf("verifying SignedKeyDirectBackup signature against source TEE: %w", err)
+	}
+
+	var payload backup.KeyDirectBackupPayload
+	if err := json.Unmarshal(skdb.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshaling KeyDirectBackupPayload, %w", err)
+	}
+
+	if err := checkConsistencyDirect(payload.BackupID, req.BackupId); err != nil {
+		return fmt.Errorf("checking consistency: %w", err)
+	}
 
 	if err = ib.Sign(ctx, b.base.signer, b.base.chainID); err != nil {
 		return fmt.Errorf("signing: %w", err)
@@ -348,41 +427,57 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 	}
 }
 
-// checkConsistency checks that the fields in the restore request match those in the wallet backup ID.
-func checkConsistency(request wallet.IWalletBackupManagerKeyDataProviderRestore, id wallets.WalletBackupID, tees []teeinstructions.IMachineManagerTeeMachine) error {
-	pk, err := types.ParsePubKey(types.PublicKey{
-		X: request.TeePublicKey.X,
-		Y: request.TeePublicKey.Y,
-	})
-
+// validateActionResponseDirect verifies the source proxy's action response is
+// signed by the source TEE and is the expected successful KEY_DIRECT_BACKUP action.
+func validateActionResponseDirect(resp types.ActionResponse, chainID uint64, sourceTEE common.Address, expectedInstructionID common.Hash) error {
+	respHash, err := signing.NewPayload(signing.TEEActionResult, chainID, [32]byte(resp.Result.Hash())).Hash()
 	if err != nil {
-		return fmt.Errorf("parsing TEE public key: %w", err)
+		return fmt.Errorf("retrieving action result signing hash: %w", err)
 	}
 
-	recoveredTeeID := crypto.PubkeyToAddress(*pk)
+	if err = utils.VerifySignature(respHash[:], resp.Signature, sourceTEE); err != nil {
+		return err
+	}
+	if resp.Result.Status != 1 {
+		return fmt.Errorf("response has status %d (should be 1)", resp.Result.Status)
+	}
+	if resp.Result.SubmissionTag != types.Threshold {
+		return fmt.Errorf("response has submission tag %v (should be %v)", resp.Result.SubmissionTag, types.Threshold)
+	}
+	if resp.Result.ID != expectedInstructionID {
+		return errors.New("response has unexpected ID")
+	}
+	if resp.Result.OPType != op.Wallet.Hash() {
+		return fmt.Errorf("response has op type %s", op.HashToOPType(resp.Result.OPType))
+	}
+	if resp.Result.OPCommand != op.KeyDirectBackup.Hash() {
+		return fmt.Errorf("response has op command %s", op.HashToOPCommand(resp.Result.OPCommand))
+	}
 
+	return nil
+}
+
+// checkConsistencyDirect checks that the backup payload's BackupID matches the
+// requested BackupId field by field.
+func checkConsistencyDirect(receivedID wallets.WalletBackupID, requestedID wallet.IWalletBackupManagerBackupId) error {
 	switch {
-	case len(tees) != 1:
-		return errors.New("restore can only be requested on one tee per instruction")
-	case recoveredTeeID != tees[0].TeeId:
-		return errors.New("provided public key does not match the destination tee")
-	case request.BackupId.TeeId != id.TeeID:
-		return errors.New("teeID in the request does not match the teeID in the wallet backup id")
-	case common.Hash(request.BackupId.WalletId) != id.WalletID:
-		return errors.New("walletID in the request does not match the walletID in the wallet backup id")
-	case request.BackupId.KeyId != id.KeyID:
-		return errors.New("keyID in the request does not match the keyID in the wallet backup id")
-	case !slices.Equal(request.BackupId.PublicKey, id.PublicKey):
-		return errors.New("publicKey in the request does not match the publicKey in the wallet backup id")
-	case common.Hash(request.BackupId.KeyType) != id.KeyType:
-		return errors.New("keyType in the request does not match the keyType in the wallet backup id")
-	case common.Hash(request.BackupId.SigningAlgo) != id.SigningAlgo:
-		return errors.New("signingAlgo in the request does not match the signingAlgo in the wallet backup id")
-	case request.BackupId.RewardEpochId != id.RewardEpochID:
-		return errors.New("rewardEpochID in the request does not match the rewardEpochID in the wallet backup id")
-	case common.Hash(request.BackupId.RandomNonce) != id.RandomNonce:
-		return errors.New("randomNonce in the request does not match the randomNonce in the wallet backup id")
-	default:
-		return nil
+	case receivedID.TeeID != requestedID.TeeId:
+		return errors.New("tee IDs do not match")
+	case receivedID.WalletID != common.Hash(requestedID.WalletId):
+		return errors.New("wallet IDs do not match")
+	case receivedID.KeyID != requestedID.KeyId:
+		return errors.New("key IDs do not match")
+	case !bytes.Equal(receivedID.PublicKey, requestedID.PublicKey):
+		return errors.New("public keys do not match")
+	case receivedID.KeyType != common.Hash(requestedID.KeyType):
+		return errors.New("key types do not match")
+	case receivedID.SigningAlgo != common.Hash(requestedID.SigningAlgo):
+		return errors.New("signing algos do not match")
+	case receivedID.RewardEpochID != requestedID.RewardEpochId:
+		return errors.New("reward epochs do not match")
+	case receivedID.RandomNonce != common.Hash(requestedID.RandomNonce):
+		return errors.New("random nonces do not match")
 	}
+
+	return nil
 }
