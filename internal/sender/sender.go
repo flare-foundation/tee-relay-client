@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +50,7 @@ func Run(ctx context.Context, in <-chan *instructions.Base, allowUnsafeURLs bool
 
 					err = SendToTEE(ctx, url, *msg, transport)
 					if err != nil {
-						logger.Errorf("sending instruction %s for %s to %s: %v", instructionOPLogging(msg.Data), msg.Data.TeeID, url, err)
+						logger.Errorf("sending instruction %s for %s to %s: %v", instructionOPLogging(msg.Data), msg.Data.TeeID, strconv.Quote(url), err)
 						return
 					}
 				}()

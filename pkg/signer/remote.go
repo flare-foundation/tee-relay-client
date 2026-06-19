@@ -65,7 +65,7 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 
 	response, err := call.PostWithRetry[signer.EncryptedBody, signer.DecryptedBody](ctx, r.URL+"/decrypt", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
-		MaxResponseSize: int64(10 * len(cipher)),
+		MaxResponseSize: int64(10 * (len(cipher) + 1)),
 	}, []int{},
 		retry.Params{
 			MaxAttempts: 3,

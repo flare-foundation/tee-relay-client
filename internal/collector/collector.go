@@ -65,6 +65,18 @@ func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
 	return nil
 }
 
+// windowStart returns the lower bound (exclusive, per the (From, To] query) for
+// the initial log scan: startInterval blocks below index, clamped at 0. The
+// clamp is required because index is unsigned, so index - startInterval would
+// otherwise wrap on a fresh indexer (index < startInterval) and int64() it into
+// a negative From that scans from genesis.
+func windowStart(index, startInterval uint64) int64 {
+	if index <= startInterval {
+		return 0
+	}
+	return int64(index - startInterval)
+}
+
 // instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by the FlareTeeManager diamond and pushes them on to the instructions channel.
 func instructionsListener(
 	ctx context.Context,
@@ -81,12 +93,10 @@ func instructionsListener(
 		logger.Panicf("fetching initial state: %v", err)
 	}
 
-	lastQueriedIndex := max(0, state.Index-startInterval)
-
 	params := database.LogsParams{
 		Address: flareTeeManager,
 		Topic0:  TeeInstructionsSentSel,
-		From:    int64(lastQueriedIndex),
+		From:    windowStart(state.Index, startInterval),
 		To:      int64(state.Index),
 	}
 

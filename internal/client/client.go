@@ -12,6 +12,7 @@ import (
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
+	"gorm.io/gorm"
 )
 
 // Client collects logs, routes them, and sends the results.
@@ -28,6 +29,11 @@ func New(cfg config.Config) (*Client, error) {
 		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
 
+	return newWithDB(cfg, db)
+}
+
+// newWithDB assembles the Client around an already-open database handle.
+func newWithDB(cfg config.Config, db *gorm.DB) (*Client, error) {
 	sgnr, err := setSigner(&cfg.Signer)
 	if err != nil {
 		return nil, fmt.Errorf("could not set signer: %w", err)

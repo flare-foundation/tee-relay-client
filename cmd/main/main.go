@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,20 +19,31 @@ const (
 	configPath string = "config.toml" // relative to project root
 )
 
-func main() {
-	cfg, err := toml.Read[config.Config](configPath, true)
+// loadConfig reads and validates the relay configuration from path and applies
+// the ALLOW_UNSAFE_URLS environment override.
+func loadConfig(path string) (config.Config, error) {
+	cfg, err := toml.Read[config.Config](path, true)
 	if err != nil {
-		logger.Panicf("cannot read configs: %v", err)
+		return cfg, fmt.Errorf("reading config: %w", err)
 	}
 	if err := cfg.CheckAddress(); err != nil {
-		logger.Panicf("checking address: %v", err)
+		return cfg, fmt.Errorf("checking address: %w", err)
 	}
 	if err := cfg.CheckChainID(); err != nil {
-		logger.Panicf("checking chain id: %v", err)
+		return cfg, fmt.Errorf("checking chain id: %w", err)
 	}
 
 	if v, ok := os.LookupEnv(allowUnsafeURLsEnv); ok && v == "true" {
 		cfg.AllowUnsafeURLs = true
+	}
+
+	return cfg, nil
+}
+
+func main() {
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		logger.Panicf("loading config: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
