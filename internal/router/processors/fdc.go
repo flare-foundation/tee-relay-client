@@ -88,7 +88,7 @@ func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 
 	q, exits := f.queues[queueName]
 	if !exits { // should be impossible
-		return fmt.Errorf("no queue for: %v", id)
+		return fmt.Errorf("no queue %q for: %s, %s", queueName, convert.CommonHashToString(common.BytesToHash(id[:32])), convert.CommonHashToString(common.BytesToHash(id[32:64])))
 	}
 	_, err = q.Add(ctx, ib, Weight{time.Now()})
 	if err != nil {

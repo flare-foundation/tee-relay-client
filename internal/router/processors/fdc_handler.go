@@ -2,7 +2,6 @@ package processors
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -65,7 +64,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 
 	v, exists := h.verifiers[ats]
 	if !exists {
-		return fmt.Errorf("no verifier for %x", ats)
+		return fmt.Errorf("no verifier for type: %s, source: %s", strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"))
 	}
 
 	attResponse, success, err := v.Response(ctx, fullRequest)
@@ -73,11 +72,11 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		if err != nil {
 			// err can carry the verifier's response body; quote it so control
 			// characters cannot forge log lines.
-			logger.Warnf("verifier error for instruction %s of type: %s, source: %s, %s", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), strconv.Quote(err.Error()))
+			logger.Warnf("verifier error for instruction %s of type: %s, source: %s, %s", common.Hash(ib.Event.InstructionId).Hex(), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), strconv.Quote(err.Error()))
 			return fmt.Errorf("getting attestation response: %w", err)
 		}
 
-		logger.Infof("verifier rejected request from instruction %s of type: %s, source: %s", hex.EncodeToString(ib.Event.InstructionId[:]), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"))
+		logger.Infof("verifier rejected request from instruction %s of type: %s, source: %s", common.Hash(ib.Event.InstructionId).Hex(), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"))
 
 		return nil
 	}

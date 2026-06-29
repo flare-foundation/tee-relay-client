@@ -107,7 +107,7 @@ func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 
 	processor, err := r.Route(instr)
 	if err != nil {
-		return fmt.Errorf("no processor for %v: %w", instr.Event.InstructionId, err)
+		return fmt.Errorf("no processor for %v: %w", common.Hash(instr.Event.InstructionId), err)
 	}
 
 	go func() {
