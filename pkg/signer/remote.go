@@ -26,19 +26,26 @@ const errBodyDrainLimit = 4 << 10 // 4 KiB cap when draining an error response b
 // The signer URL is operator-controlled config, so no SSRF protection is applied.
 type Remote struct {
 	*config.Credentials
+	log Logger
 }
 
 var _ Signer = &Remote{}
 
 // NewRemote creates a Remote signer.
 func NewRemote(creds *config.Credentials) *Remote {
-	return &Remote{Credentials: creds}
+	return &Remote{Credentials: creds, log: nopLogger{}}
+}
+
+// NewRemoteWithLogger creates a Remote signer that logs through log.
+func NewRemoteWithLogger(creds *config.Credentials, log Logger) *Remote {
+	return &Remote{Credentials: creds, log: log}
 }
 
 // Sign sends hashes to signer and returns the corresponding signatures.
 func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Bytes, error) {
 	req := signer.SignBody{Hashes: hashes}
 
+	start := time.Now()
 	response, err := call.PostWithRetry[signer.SignBody, signer.SignedBody](ctx, r.URL+"/sign", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: 50 + int64(bytesPerSignature*len(hashes)),
@@ -49,12 +56,15 @@ func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Byte
 			Timeout:     10 * time.Second,
 		})
 	if err != nil {
+		r.log.Debugf("sign of %d hashes failed in %s", len(hashes), time.Since(start))
 		return nil, fmt.Errorf("post call to %v rejected: %w", r.URL, err)
 	}
 
 	if len(hashes) != len(response.Message.Signatures) {
 		return nil, fmt.Errorf("wrong number of signatures, requested %d, got %d", len(hashes), len(response.Message.Signatures))
 	}
+
+	r.log.Debugf("signed %d hashes in %s", len(hashes), time.Since(start))
 
 	return response.Message.Signatures, nil
 }
@@ -63,6 +73,7 @@ func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Byte
 func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, error) {
 	req := signer.EncryptedBody{Cipher: cipher}
 
+	start := time.Now()
 	response, err := call.PostWithRetry[signer.EncryptedBody, signer.DecryptedBody](ctx, r.URL+"/decrypt", r.APIKey(), req, call.Params{
 		Timeout:         timeout,
 		MaxResponseSize: int64(10 * (len(cipher) + 1)),
@@ -73,8 +84,11 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 			Timeout:     10 * time.Second,
 		})
 	if err != nil {
+		r.log.Debugf("decrypt of %d cipher bytes failed in %s", len(cipher), time.Since(start))
 		return nil, fmt.Errorf("post call to %v rejected: %w", r.URL, err)
 	}
+
+	r.log.Debugf("decrypted %d cipher bytes in %s", len(cipher), time.Since(start))
 
 	return response.Message.Plain, nil
 }
@@ -111,12 +125,14 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	request.Header.Set(r.KeyName, r.Key)
 	request.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	re := retry.Execute(ctx, idCallFactory(client, request), retry.Params{
 		MaxAttempts: 3,
 		Delay:       5 * time.Second,
 		Timeout:     20 * time.Second,
 	})
 	if !re.Success {
+		r.log.Debugf("identify failed in %s", time.Since(start))
 		return pk, re.Err
 	}
 
@@ -131,6 +147,8 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	if err != nil {
 		return pk, fmt.Errorf("decoding identify response: %w", err)
 	}
+
+	r.log.Debugf("identified signer in %s", time.Since(start))
 
 	return pk, nil
 }

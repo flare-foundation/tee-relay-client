@@ -20,3 +20,21 @@ type Signer interface {
 	// Identify retrieves identity of the signer.
 	Identify(ctx context.Context) (types.PublicKey, error)
 }
+
+// Logger is the logging interface injected into signers. logger.Nop and *zap.SugaredLogger satisfy it.
+type Logger interface {
+	Debugf(string, ...any)
+	Infof(string, ...any)
+	Warnf(string, ...any)
+	Errorf(string, ...any)
+}
+
+// nopLogger is the silent default used when no logger is injected.
+type nopLogger struct{}
+
+var _ Logger = nopLogger{}
+
+func (nopLogger) Debugf(string, ...any) {}
+func (nopLogger) Infof(string, ...any)  {}
+func (nopLogger) Warnf(string, ...any)  {}
+func (nopLogger) Errorf(string, ...any) {}
