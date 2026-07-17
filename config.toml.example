@@ -15,9 +15,11 @@ log_queries = false
 
 
 [logger]
-max_file_size = 10 # 10MB
-file = ""
-level = "INFO"
+level = "INFO"     # INFO shows startup/wiring, lifecycle, and failures; per-instruction tracing requires "DEBUG"
+file = ""          # log file path; empty = no file. With console = false this discards ALL logs
+max_file_size = 10 # MB per rotated file
+max_backups = 10   # rotated files kept
+max_age_days = 30  # days rotated files are kept
 console = true
 
 
@@ -29,6 +31,8 @@ url = ""
 key_name = ""
 key = ""
 
+# Terminal queue errors are drained and logged by the relay on a best-effort
+# basis (error_chan is forced on internally; setting it here has no effect).
 
 [fdc.queues.availability]
 max_dequeues_per_second = 100 # zero for unlimited
