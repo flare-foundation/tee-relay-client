@@ -44,12 +44,12 @@ func init() {
 func parseTeeInstructionsSent(i database.Log) (*InstructionSentEvent, error) {
 	cl, err := events.ConvertDatabaseLogToChainLog(i)
 	if err != nil {
-		return nil, fmt.Errorf("converting instruction db log %v: %w", i, err)
+		return nil, fmt.Errorf("converting instruction db log 0x%s: %w", i.Topic2, err)
 	}
 
 	is, err := teeFilterer.ParseTeeInstructionsSent(*cl)
 	if err != nil {
-		return nil, fmt.Errorf("parsing instruction %v: %w", i, err)
+		return nil, fmt.Errorf("parsing instruction 0x%s: %w", i.Topic2, err)
 	}
 
 	return is, nil
@@ -65,7 +65,7 @@ func ParseInstruction(il database.Log) (*Base, error) {
 	ib.Event = event
 	ib.EventToData(il.Timestamp)
 
-	logger.Debugf("received instruction: %s, with ts %d at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
+	logger.Debugf("received instruction %s, block ts %d, at %d", ib.GeneralData.InstructionID, ib.GeneralData.Timestamp, time.Now().Unix())
 	return &ib, nil
 }
 
@@ -105,7 +105,7 @@ func (ib *Base) hashesForSigning(chainID uint64) ([]common.Hash, error) {
 		data.TeeID = ib.Tees[j].TeeId
 		hashes[j], err = data.HashForSigning(chainID)
 		if err != nil {
-			return nil, fmt.Errorf("hash of %v: %w", data, err)
+			return nil, fmt.Errorf("hashing instruction %s for tee %s: %w", data.InstructionID, data.TeeID, err)
 		}
 	}
 	return hashes, nil
@@ -113,7 +113,7 @@ func (ib *Base) hashesForSigning(chainID uint64) ([]common.Hash, error) {
 
 // Sign sets signatures of instructions for each Tee.
 func (ib *Base) Sign(ctx context.Context, s signer.Signer, chainID uint64) error {
-	logger.Debugf("sending %v to sign", ib.GeneralData.InstructionID)
+	logger.Debugf("sending instruction %s to sign", ib.GeneralData.InstructionID)
 
 	toSign, err := ib.hashesForSigning(chainID)
 	if err != nil {
@@ -122,7 +122,7 @@ func (ib *Base) Sign(ctx context.Context, s signer.Signer, chainID uint64) error
 
 	signatures, err := s.Sign(ctx, toSign)
 	if err != nil {
-		return fmt.Errorf("getting signatures for %v: %w", ib.GeneralData, err)
+		return fmt.Errorf("getting signatures for instruction %s: %w", ib.GeneralData.InstructionID, err)
 	}
 	ib.Signatures = signatures
 

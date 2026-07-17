@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -89,11 +90,14 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 		return fmt.Errorf("creating backup request: %w", err)
 	}
 
+	start := time.Now()
 	resp, err := client.Do(request)
 	if err != nil {
 		return fmt.Errorf("fetching backup: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
+
+	logger.Debugf("restore %s: fetched backup from %s in %s", common.Hash(ib.Event.InstructionId).Hex(), strconv.Quote(fullRequest.BackupUrl), time.Since(start))
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
@@ -153,6 +157,9 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 
 	ptForTEE, err := b.plaintextForTEE(ctx, wBackup, &pk)
 	if ptForTEE == nil { // if err is not nil, ptForTEE is nil. If err is nil and ptForTEE is nil, the entity legitimately has nothing to send.
+		if err == nil {
+			logger.Debugf("restore %s: signer not among backup owners, nothing to send", common.Hash(ib.Event.InstructionId).Hex())
+		}
 		return err
 	}
 
@@ -182,6 +189,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 
 	select {
 	case b.base.out <- ib:
+		logger.Debugf("restore %s: forwarded to sender", common.Hash(ib.Event.InstructionId).Hex())
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -360,11 +368,14 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 		return fmt.Errorf("creating direct backup fetch request: %w", err)
 	}
 
+	start := time.Now()
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("fetching direct backup envelope from %s: %w", strconv.Quote(url), err)
 	}
 	defer resp.Body.Close() //nolint:errcheck // closing response body, error is not actionable
+
+	logger.Debugf("direct restore %s: fetched envelope from %s in %s", common.Hash(ib.Event.InstructionId).Hex(), strconv.Quote(url), time.Since(start))
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
@@ -424,6 +435,7 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 
 	select {
 	case b.base.out <- ib:
+		logger.Debugf("direct restore %s: forwarded to sender", common.Hash(ib.Event.InstructionId).Hex())
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

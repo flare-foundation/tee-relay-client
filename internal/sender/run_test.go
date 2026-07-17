@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,7 +54,8 @@ func TestRun(t *testing.T) {
 	}
 
 	in := make(chan *instructions.Base, 1)
-	Run(t.Context(), in, true) // allowUnsafeURLs: reach the httptest loopback
+	var wg sync.WaitGroup
+	Run(t.Context(), &wg, in, true) // allowUnsafeURLs: reach the httptest loopback
 	in <- ib
 
 	for range 2 {

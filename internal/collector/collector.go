@@ -4,12 +4,14 @@ package collector
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -47,7 +49,7 @@ func New(db *gorm.DB, flareTeeManager common.Address) *Collector {
 }
 
 // Run waits for db to sync starts a goroutine in which collector listens to TeeInstructionsSent events and sends them to out channel.
-func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
+func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []database.Log) error {
 	syncParams := database.SyncParams{
 		Retries:            30,
 		OutOfSyncTolerance: 30 * time.Second,
@@ -55,12 +57,14 @@ func (c *Collector) Run(ctx context.Context, out chan<- []database.Log) error {
 		MinSleepTime:       5 * time.Second,
 	}
 
-	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger())
+	// AddCallerSkip(-1) attributes WaitCIndexerToSync's lines to that call, not here.
+	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger().WithOptions(zap.AddCallerSkip(-1)))
 	if err != nil {
 		return fmt.Errorf("waiting for indexer to sync: %w", err)
 	}
 
-	go instructionsListener(ctx, c.DB, c.flareTeeManager, requestInterval, out)
+	wg.Add(1)
+	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, requestInterval, out)
 
 	return nil
 }
@@ -80,16 +84,24 @@ func windowStart(index, startInterval uint64) int64 {
 // instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by the FlareTeeManager diamond and pushes them on to the instructions channel.
 func instructionsListener(
 	ctx context.Context,
+	wg *sync.WaitGroup,
 	db *gorm.DB,
 	flareTeeManager common.Address,
 	listenerInterval time.Duration,
 	out chan<- []database.Log,
 ) {
+	defer wg.Done()
+
 	trigger := time.NewTicker(listenerInterval)
 	defer trigger.Stop()
 
 	state, err := database.FetchState(ctx, db, nil)
 	if err != nil {
+		// A cancelled ctx here means shutdown raced startup, not a real fault.
+		if ctx.Err() != nil {
+			logger.Infof("closing collector Run: %v", ctx.Err())
+			return
+		}
 		logger.Panicf("fetching initial state: %v", err)
 	}
 
@@ -100,37 +112,47 @@ func instructionsListener(
 		To:      int64(state.Index),
 	}
 
+	logger.Infof("collector watching FlareTeeManager %s from block %d to %d", flareTeeManager, params.From, params.To)
+
+	stateDamper := newDamper("fetching state")
+	logsDamper := newDamper("fetching logs")
+
 	for {
 		select {
 		case <-trigger.C:
 		case <-ctx.Done():
-			logger.Infof("instructionsListener exiting: %v", ctx.Err())
+			logger.Infof("closing collector Run: %v", ctx.Err())
 			return
 		}
 
 		state, err = database.FetchState(ctx, db, nil)
 		if err != nil {
-			logger.Errorf("fetching state: %v", err)
+			stateDamper.fail(err)
 			continue
 		}
+		stateDamper.ok()
 
 		params.To = int64(state.Index)
 
+		from := params.From
 		logs, err := database.FetchLogsByAddressAndTopic0BlockNumber(
 			ctx, db, params,
 		)
 		if err != nil {
-			logger.Errorf("fetching logs: %v", err)
+			logsDamper.fail(err)
 			continue
 		}
+		logsDamper.ok()
 
 		params.From = params.To
 
 		if len(logs) > 0 {
+			logger.Debugf("collected %d instruction logs in blocks (%d,%d]", len(logs), from, params.To)
+
 			select {
 			case out <- logs:
 			case <-ctx.Done():
-				logger.Infof("instructionsListener exiting: %v", ctx.Err())
+				logger.Infof("closing collector Run: %v", ctx.Err())
 				return
 			}
 		}

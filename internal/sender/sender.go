@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,39 +25,40 @@ const maxRespSize = 10 << 10    // 10 KiB for maximal response size of the serve
 
 // Run starts a go routine that listens to instructions from in channel and sends them to tees.
 // When allowUnsafeURLs is true SSRF protection is disabled — only for local testing.
-func Run(ctx context.Context, in <-chan *instructions.Base, allowUnsafeURLs bool) {
+func Run(ctx context.Context, wg *sync.WaitGroup, in <-chan *instructions.Base, allowUnsafeURLs bool) {
 	transport := newTransport(allowUnsafeURLs)
 
-	go func() {
+	wg.Go(func() {
 		for {
-			if err := ctx.Err(); err != nil {
-				logger.Infof("closing sender Run: %v", err)
+			select {
+			case <-ctx.Done():
+				logger.Infof("closing sender Run: %v", ctx.Err())
 				return
-			}
+			case instr, ok := <-in:
+				if !ok {
+					logger.Infof("closing sender Run: in channel closed")
+					return
+				}
 
-			instr, ok := <-in
-			if !ok {
-				logger.Infof("closing sender Run: in channel closed")
-				return
-			}
+				for j := range instr.Tees {
+					go func() {
+						msg, url, err := PrepareInstruction(*instr, j)
+						if err != nil {
+							logger.Errorf("preparing instruction %s for tee %s: %v", instructionOPLogging(instr.GeneralData), instr.Tees[j].TeeId, err)
+							return
+						}
 
-			for j := range instr.Tees {
-				go func() {
-					msg, url, err := PrepareInstruction(*instr, j)
-					if err != nil {
-						logger.Errorf("preparing instruction %s for %d: %v", instructionOPLogging(instr.GeneralData), j, err)
-						return
-					}
-
-					err = SendToTEE(ctx, url, *msg, transport)
-					if err != nil {
-						logger.Errorf("sending instruction %s for %s to %s: %v", instructionOPLogging(msg.Data), msg.Data.TeeID, strconv.Quote(url), err)
-						return
-					}
-				}()
+						err = SendToTEE(ctx, url, *msg, transport)
+						if err != nil {
+							// quote: err can carry the endpoint's raw response body.
+							logger.Errorf("sending instruction %s for %s to %s: %s", instructionOPLogging(msg.Data), msg.Data.TeeID, strconv.Quote(url), strconv.Quote(err.Error()))
+							return
+						}
+					}()
+				}
 			}
 		}
-	}()
+	})
 }
 
 func newTransport(allowUnsafe bool) http.RoundTripper {
@@ -86,6 +88,8 @@ type Receipt struct {
 func SendToTEE(ctx context.Context, url string, instr instruction.Instruction, transport http.RoundTripper) error {
 	urlEndpoint := url + "/instruction"
 
+	start := time.Now()
+
 	// todo handle response
 	res, err := call.PostWithRetry[instruction.Instruction, SignedReceipt](ctx, urlEndpoint, call.NoAPIKey, instr, call.Params{
 		Timeout:         timeout,
@@ -99,7 +103,9 @@ func SendToTEE(ctx context.Context, url string, instr instruction.Instruction, t
 		})
 
 	if err == nil {
-		logger.Debugf("delivered instruction %s to %s, res: %v", instructionOPLogging(instr.Data), url, res.Message)
+		logger.Debugf("delivered instruction %s to %s in %s, receipt: seq %d, ts %d, vote %s",
+			instructionOPLogging(instr.Data), strconv.Quote(url), time.Since(start),
+			res.Message.Receipt.Sequence, res.Message.Receipt.Timestamp, res.Message.Receipt.VoteHash)
 	}
 
 	return err

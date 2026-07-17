@@ -7,6 +7,7 @@ require (
 	github.com/flare-foundation/go-flare-common v1.2.2-0.20260619092858-10bd8c2bb674
 	github.com/flare-foundation/tee-node v0.0.21-0.20260619113727-bd174a5aa450
 	github.com/stretchr/testify v1.11.1
+	go.uber.org/zap v1.27.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
 )
@@ -47,7 +48,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.40.0 // indirect
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621 // indirect
 	golang.org/x/sync v0.20.0 // indirect

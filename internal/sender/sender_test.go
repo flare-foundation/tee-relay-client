@@ -2,6 +2,7 @@ package sender_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,8 +61,9 @@ func TestPrepareInstruction(t *testing.T) {
 
 	out := make(chan *instructions.Base, 2)
 
+	var wg sync.WaitGroup
 	r.SetOut(out)
-	r.StartQueues(ctx)
+	r.StartQueues(ctx, &wg)
 
 	err = r.Handle(ctx, event)
 	require.NoError(t, err)
