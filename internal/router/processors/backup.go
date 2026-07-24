@@ -38,8 +38,11 @@ type Backup struct {
 	allowUnsafeURLs bool
 }
 
-const sizeLimit = 500 << 10    // 500 Kib
-const errorSizeLimit = 1 << 10 // 1 Kib
+const (
+	sizeLimitDataProviderRestore = 2 << 20   // 2 MiB
+	sizeLimitDirectRestore       = 100 << 10 // 100 KiB
+	errorSizeLimit               = 1 << 10   // 1 KiB
+)
 
 // NewBackup creates a Backup processor. When allowUnsafeURLs is true SSRF
 // protection for backup URLs is disabled — only for local testing.
@@ -107,7 +110,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 
 	respLimited := &io.LimitedReader{
 		R: resp.Body,
-		N: sizeLimit,
+		N: sizeLimitDataProviderRestore,
 	}
 
 	decoder := json.NewDecoder(respLimited)
@@ -379,7 +382,7 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 
 	respLimited := &io.LimitedReader{
 		R: resp.Body,
-		N: sizeLimit,
+		N: sizeLimitDirectRestore,
 	}
 	var actionResp types.ActionResponse
 	if err = json.NewDecoder(respLimited).Decode(&actionResp); err != nil {
