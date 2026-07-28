@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -46,7 +47,8 @@ func TestIntegration(t *testing.T) {
 	in := make(chan []database.Log)
 	out := make(chan *instructions.Base, 3)
 
-	rtr.Run(ctx, in, out)
+	var wg sync.WaitGroup
+	rtr.Run(ctx, &wg, in, out)
 
 	in <- events
 
@@ -102,7 +104,8 @@ func TestIntegrationCosigner(t *testing.T) {
 	in := make(chan []database.Log, 10)
 	out := make(chan *instructions.Base, 10)
 
-	rtr.Run(ctx, in, out)
+	var wg sync.WaitGroup
+	rtr.Run(ctx, &wg, in, out)
 
 	in <- events
 

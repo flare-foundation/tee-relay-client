@@ -78,7 +78,8 @@ func TestCollector(t *testing.T) {
 	db.Create(&requestLog1)
 	db.Create(&requestLog2)
 
-	err = c.Run(ctx, out)
+	var runWg sync.WaitGroup
+	err = c.Run(ctx, &runWg, out)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

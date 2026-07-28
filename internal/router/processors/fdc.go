@@ -3,10 +3,12 @@ package processors
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
@@ -48,7 +50,7 @@ func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 	for _, v := range cfg.Verifiers {
 		identifier, err := v.AttTypeAndSourceID()
 		if err != nil {
-			return nil, fmt.Errorf("invalid verifier %v: %w", v, err)
+			return nil, fmt.Errorf("invalid verifier (type %q, source %q, queue %q): %w", v.AttType, v.SourceID, v.QueueName, err)
 		}
 		idToQueueName[identifier] = v.QueueName
 
@@ -67,10 +69,15 @@ func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 
 // StartQueues initiates FDC queues to process the inputs with the set verifiers and pass the result
 // to the base processor.
-func (f *FDC) StartQueues(ctx context.Context) {
-	for _, q := range f.queues {
+func (f *FDC) StartQueues(ctx context.Context, wg *sync.WaitGroup) {
+	for name, q := range f.queues {
+		logger.Infof("started FDC queue %s", name)
 		q.InitiateAndRun(ctx)
-		q.ProcessOut(ctx, f.handler)
+		q.ProcessOut(ctx, wg, f.handler)
+	}
+
+	for id, queueName := range f.idToQueueName {
+		logger.Infof("FDC queue %s serves type %s, source %s", queueName, convert.CommonHashToString(common.BytesToHash(id[:32])), convert.CommonHashToString(common.BytesToHash(id[32:64])))
 	}
 }
 
@@ -83,17 +90,23 @@ func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 
 	queueName, exits := f.idToQueueName[id]
 	if !exits {
-		return fmt.Errorf("no queue for: %s, %s", convert.CommonHashToString(common.BytesToHash(id[:32])), convert.CommonHashToString(common.BytesToHash(id[32:64])))
+		attType, sourceID := atsStrings(id)
+		return fmt.Errorf("no queue for: %s, %s", attType, sourceID)
 	}
 
 	q, exits := f.queues[queueName]
 	if !exits { // should be impossible
-		return fmt.Errorf("no queue %q for: %s, %s", queueName, convert.CommonHashToString(common.BytesToHash(id[:32])), convert.CommonHashToString(common.BytesToHash(id[32:64])))
+		attType, sourceID := atsStrings(id)
+		return fmt.Errorf("no queue %q for: %s, %s", queueName, attType, sourceID)
 	}
 	_, err = q.Add(ctx, ib, Weight{time.Now()})
 	if err != nil {
 		return fmt.Errorf("adding to queue %v: %w", queueName, err)
 	}
+
+	// depth is approximate: Add hands off to a channel and a goroutine pushes
+	// to the heap asynchronously, so it may not yet count this item.
+	logger.Debugf("queued instruction %s on %s (depth %d)", common.Hash(ib.Event.InstructionId).Hex(), queueName, q.Length())
 
 	return nil
 }

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -41,7 +42,7 @@ func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandle
 	for _, v := range verifiers {
 		identifier, err := v.AttTypeAndSourceID()
 		if err != nil {
-			return nil, fmt.Errorf("invalid verifier %v: %w", v, err)
+			return nil, fmt.Errorf("invalid verifier (type %q, source %q, queue %q): %w", v.AttType, v.SourceID, v.QueueName, err)
 		}
 
 		fdcHandler.verifiers[identifier] = &Verifier{&v.Server}
@@ -64,22 +65,28 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 
 	v, exists := h.verifiers[ats]
 	if !exists {
-		return fmt.Errorf("no verifier for type: %s, source: %s", strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"))
+		attType, sourceID := atsStrings(ats)
+		return fmt.Errorf("no verifier for type: %s, source: %s", attType, sourceID)
 	}
 
+	start := time.Now()
 	attResponse, success, err := v.Response(ctx, fullRequest)
 	if !success {
+		attType, sourceID := atsStrings(ats)
+
 		if err != nil {
 			// err can carry the verifier's response body; quote it so control
 			// characters cannot forge log lines.
-			logger.Warnf("verifier error for instruction %s of type: %s, source: %s, %s", common.Hash(ib.Event.InstructionId).Hex(), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"), strconv.Quote(err.Error()))
+			logger.Debugf("verifier error for instruction %s (type %s, source %s): %s", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID, strconv.Quote(err.Error()))
 			return fmt.Errorf("getting attestation response: %w", err)
 		}
 
-		logger.Infof("verifier rejected request from instruction %s of type: %s, source: %s", common.Hash(ib.Event.InstructionId).Hex(), strings.TrimRight(string(ats[0:32]), "\x00"), strings.TrimRight(string(ats[32:64]), "\x00"))
+		logger.Debugf("verifier rejected request from instruction %s (type %s, source %s)", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID)
 
 		return nil
 	}
+
+	logger.Debugf("verifier answered instruction %s in %s", common.Hash(ib.Event.InstructionId).Hex(), time.Since(start))
 
 	ib.GeneralData.AdditionalFixedMessage = attResponse
 	messageHash, _, err := fdc.HashMessage(h.chainID, fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
@@ -131,4 +138,25 @@ func AttTypeAndSourceID(header *fdc2.IFdc2HubFdc2RequestHeader) ([64]byte, error
 	copy(res[32:], header.SourceId[:])
 
 	return res, nil
+}
+
+// atsStrings renders the attestation type and source ID halves of ats as text
+// when the NUL-trimmed bytes are printable ASCII, as 0x-hex otherwise.
+func atsStrings(ats [64]byte) (string, string) {
+	return atsHalf(ats[0:32]), atsHalf(ats[32:64])
+}
+
+// atsHalf renders half as text when its NUL-trimmed bytes are printable
+// ASCII, as 0x-hex otherwise.
+func atsHalf(half []byte) string {
+	hash := common.BytesToHash(half)
+
+	s := convert.CommonHashToString(hash)
+	for i := range len(s) {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return hash.Hex()
+		}
+	}
+
+	return s
 }

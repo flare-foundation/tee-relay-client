@@ -53,6 +53,7 @@ func TestRemoteDecrypt(t *testing.T) {
 	srv := jsonServer("/decrypt", `{"plain":"0x1234"}`)
 	defer srv.Close()
 
+	// remoteFor uses NewRemote, so this exercises the nopLogger default on the success Debugf path.
 	plain, err := remoteFor(srv.URL).Decrypt(context.Background(), []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x12, 0x34}, []byte(plain))

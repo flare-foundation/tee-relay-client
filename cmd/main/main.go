@@ -53,25 +53,30 @@ func main() {
 
 	logger.Set(cfg.Logging)
 
+	logger.Infof("tee-relay starting: chain %d, FlareTeeManager %s, cosigner %t", cfg.ChainID, cfg.FlareTeeManager, cfg.IsCosigner)
+
 	if cfg.AllowUnsafeURLs {
 		logger.Warnf("SSRF protection is disabled via %s — do not use in production", allowUnsafeURLsEnv)
 	}
 
 	cl, err := client.New(cfg)
 	if err != nil {
-		logger.Panic(err)
+		logger.Panicf("creating client: %v", err)
 	}
 
 	err = cl.Run(ctx)
 	if err != nil {
-		logger.Panic(err)
+		logger.Panicf("running client: %v", err)
 	}
 
-	select {
-	case sig := <-signalChan:
-		logger.Infof("Received %v signal, shutting down", sig)
-	case <-ctx.Done():
-		logger.Infof("Context canceled %v signal, shutting down", ctx.Err())
-	}
+	sig := <-signalChan
+	logger.Infof("received %v signal, shutting down", sig)
+
 	cancel()
+
+	// Wait for the pipeline goroutines to log their "closing" lines, then flush the file core.
+	cl.Wait()
+	if cfg.Logging.File != "" {
+		logger.SyncFileLogger()
+	}
 }

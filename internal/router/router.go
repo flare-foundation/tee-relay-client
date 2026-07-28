@@ -4,6 +4,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
@@ -59,39 +60,39 @@ func (r *Router) SetOut(out chan<- *instructions.Base) {
 
 // StartQueues initiates FDC queues to process the inputs with the set verifiers and pass the result
 // to the base processor.
-func (r *Router) StartQueues(ctx context.Context) {
-	r.fdcProcessor.StartQueues(ctx)
+func (r *Router) StartQueues(ctx context.Context, wg *sync.WaitGroup) {
+	r.fdcProcessor.StartQueues(ctx, wg)
 }
 
 // Run starts a go routine in which events from in chanel are Handled and the results are passed to out channel.
-func (router *Router) Run(ctx context.Context, in <-chan []database.Log, out chan<- *instructions.Base) {
+func (router *Router) Run(ctx context.Context, wg *sync.WaitGroup, in <-chan []database.Log, out chan<- *instructions.Base) {
 	router.SetOut(out)
-	router.StartQueues(ctx)
+	router.StartQueues(ctx, wg)
 
-	go func() {
+	wg.Go(func() {
 		var instructionEvents []database.Log
 		var ok bool
 
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Infof("closing instructions Run: %v", ctx.Err())
+				logger.Infof("closing router Run: %v", ctx.Err())
 				return
 			case instructionEvents, ok = <-in:
 				if !ok {
-					logger.Infof("closing instructions Run: in channel closed")
+					logger.Infof("closing router Run: in channel closed")
 					return
 				}
 
 				for j := range instructionEvents {
 					err := router.Handle(ctx, instructionEvents[j])
 					if err != nil {
-						logger.Errorf("handling instruction %s: %v", instructionEvents[j].Topic2, err)
+						logger.Errorf("handling instruction %s: %v", topicHex(instructionEvents[j].Topic2), err)
 					}
 				}
 			}
 		}
-	}()
+	})
 }
 
 // Handle parses, processes instruction log.
@@ -102,6 +103,7 @@ func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 	}
 
 	if r.Filterer != nil && r.Filter(instr.Event) {
+		logger.Debugf("instruction %s filtered out", common.Hash(instr.Event.InstructionId).Hex())
 		return nil
 	}
 
@@ -114,13 +116,13 @@ func (r *Router) Handle(ctx context.Context, inLog database.Log) error {
 		// recover so a panic on one instruction cannot crash the relay
 		defer func() {
 			if rec := recover(); rec != nil {
-				logger.Errorf("recovered panic processing instruction %s: %v", inLog.Topic2, rec)
+				logger.Errorf("recovered panic processing instruction %s: %v", topicHex(inLog.Topic2), rec)
 			}
 		}()
 
 		err := processor.Process(ctx, instr)
 		if err != nil {
-			logger.Errorf("processing instruction %s, %v", inLog.Topic2, err)
+			logger.Errorf("processing instruction %s: %v", topicHex(inLog.Topic2), err)
 		}
 	}()
 
@@ -142,6 +144,11 @@ func (r *Router) Route(b *instructions.Base) (processors.Processor, error) {
 	default: // should never happen
 		return nil, fmt.Errorf("unexpected instructions.InstructionClass: %#v", ic)
 	}
+}
+
+// topicHex renders a bare Topic2 hex string in the canonical 0x-prefixed form.
+func topicHex(topic string) string {
+	return "0x" + topic
 }
 
 func instClass(opType, opCommand common.Hash) InstructionClass {
