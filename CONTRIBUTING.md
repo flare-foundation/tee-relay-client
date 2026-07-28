@@ -1,13 +1,13 @@
 # Contributing
 
-Thank you for considering improving out source code.
+Thank you for considering improving our source code.
 All contributions are welcome.
 
 ## Issues
 
 _Sensitive security-related issues should be reported to any of [codeowners](CODEOWNERS)._
 
-To share ideas, considerations, or concerned open an issue.
+To share ideas, considerations, or concerns, open an issue.
 Before filing an issue make sure the issue has not been already raised.
 In the issue, answer the following questions:
 
@@ -31,11 +31,11 @@ The request must:
 - Compile,
 - Pass all the tests,
 - Pass all the linters,
-- Be based on opened against `main` branch.
+- Be based on and opened against the `main` branch.
 
 ## Setting the environment
 
-Make sure you are using go with higher or equal to the one specified in go.mod.
+Make sure you are using a go version higher than or equal to the one specified in `go.mod`.
 
 Get all the dependencies
 
