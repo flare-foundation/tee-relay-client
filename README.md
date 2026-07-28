@@ -93,7 +93,7 @@ The relay client requires access to a private key — the signing policy key for
 - identify and decrypt packages for key recovery
 - (cosigner mode only) identify relevant instructions
 
-Two modes are supported.
+Two modes are defined, but **the external signer is not implemented yet** — use the local signer.
 
 #### Local signer
 
@@ -112,6 +112,10 @@ export PRIVATE_KEY=0x<64 hex chars>
 ```
 
 #### External signer
+
+> **Not implemented yet.** External signing is not available in this release: no signer service
+> is deployed or operated for it, and the path is untested end to end. Run with
+> `signer.local = true`. The endpoints below specify the interface a future service must satisfy.
 
 The private key is held by an external signer service (typically the FSP client).
 
@@ -172,7 +176,7 @@ Response:
 
 Returns the secp256k1 public key coordinates of the key used for signing and decryption.
 
-A reference implementation is provided in [`go-flare-common/pkg/tee/signer`](https://github.com/flare-foundation/go-flare-common/tree/main/pkg/tee/signer).
+A prototype of such a service exists in [`go-flare-common/pkg/tee/signer`](https://github.com/flare-foundation/go-flare-common/tree/main/pkg/tee/signer). It is not part of a supported deployment.
 
 ### FDC2
 

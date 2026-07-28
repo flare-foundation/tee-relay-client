@@ -25,11 +25,12 @@ console = true
 
 # credentials for signer
 [signer]
-local = false
+local = true # external signer (local = false) is not implemented yet
 private_key_variable = "PRIVATE_KEY"
-url = ""
-key_name = ""
-key = ""
+# external signer only
+# url = ""
+# key_name = ""
+# key = ""
 
 # Terminal queue errors are drained and logged by the relay on a best-effort
 # basis (error_chan is forced on internally; setting it here has no effect).
