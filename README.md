@@ -26,9 +26,29 @@ go build -o tee-relay ./cmd/main
 
 The binary expects `config.toml` to be present in the working directory.
 
+A reachable C-chain indexer database is required: the relay connects to it at startup and exits if it cannot.
+
 ### Docker
 
-TODO
+No image is published. Build with the provided `Dockerfile`, which can be used as is:
+
+```shell
+docker build -t tee-relay .
+docker run -d --name tee-relay \
+  -v /etc/tee-relay/config.toml:/app/config.toml:ro \
+  --env-file /etc/tee-relay/relay.env \
+  tee-relay
+```
+
+The image holds only the binary and CA certificates, sets `WORKDIR /app`, and runs as uid 10001.
+
+- **Config** — mount at `/app/config.toml`. Must be readable by uid 10001, or startup panics with `permission denied`.
+- **Key** — `PRIVATE_KEY` is mandatory; pass it by env file or secret store, never in the image.
+- **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
+  `console = true` and read `docker logs`.
+- **Ports** — none, and no health endpoint; liveness comes from the logs.
+- **Stopping** — `SIGTERM` is handled, but in-flight instructions are not drained. They are normally re-collected after
+  restart via `[collector] start_interval` (see [Collector](#collector)).
 
 ## Configurations
 
