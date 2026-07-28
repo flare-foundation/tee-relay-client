@@ -4,6 +4,10 @@ is_cosigner = false
 
 chain_id = 14
 
+[collector]
+start_interval = 100 # blocks below the indexer's last block that the initial scan starts at
+
+
 # C-chain indexer db
 [db]
 host = "localhost"

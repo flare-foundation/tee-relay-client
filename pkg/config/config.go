@@ -20,17 +20,38 @@ import (
 // DefaultPrivateKeyVariable is the default environment variable name holding the signer private key.
 const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 
+// DefaultStartInterval is the default Collector.StartInterval.
+const DefaultStartInterval uint64 = 100
+
 // Config holds the relay client configuration.
 type Config struct {
 	DB              database.Config `toml:"db"`
 	Logging         logger.Config   `toml:"logger"`
 	FlareTeeManager common.Address  `toml:"flare_tee_manager"`
 
-	ChainID         uint64 `toml:"chain_id"`
-	IsCosigner      bool   `toml:"is_cosigner"`
-	Signer          Signer `toml:"signer"` // credentials for signer
-	FDC             FDC    `toml:"fdc"`
-	AllowUnsafeURLs bool   // set from ALLOW_UNSAFE_URLS env var — never from config file
+	ChainID         uint64    `toml:"chain_id"`
+	IsCosigner      bool      `toml:"is_cosigner"`
+	Signer          Signer    `toml:"signer"` // credentials for signer
+	FDC             FDC       `toml:"fdc"`
+	Collector       Collector `toml:"collector"`
+	AllowUnsafeURLs bool      // set from ALLOW_UNSAFE_URLS env var — never from config file
+}
+
+// Default returns a Config carrying the default values for optional fields.
+// Decode into it — absent keys keep the default, present keys override it, so an
+// explicit start_interval = 0 stays 0.
+func Default() Config {
+	return Config{
+		Collector: Collector{StartInterval: DefaultStartInterval},
+	}
+}
+
+// Collector holds the configuration of the indexer database listener.
+type Collector struct {
+	// StartInterval is how many blocks below the indexer's last block the initial
+	// scan starts. Instructions in that window are reprocessed on every restart,
+	// so it trades restart recovery against duplicate work; 0 starts at the last block.
+	StartInterval uint64 `toml:"start_interval"`
 }
 
 // CheckAddress returns an error if the FlareTeeManager address is unset.

@@ -22,8 +22,8 @@ const (
 // loadConfig reads and validates the relay configuration from path and applies
 // the ALLOW_UNSAFE_URLS environment override.
 func loadConfig(path string) (config.Config, error) {
-	cfg, err := toml.Read[config.Config](path, true)
-	if err != nil {
+	cfg := config.Default()
+	if err := toml.ReadTo(path, &cfg, true); err != nil {
 		return cfg, fmt.Errorf("reading config: %w", err)
 	}
 	if err := cfg.CheckAddress(); err != nil {

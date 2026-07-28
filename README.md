@@ -88,6 +88,19 @@ Address of the `FlareTeeManager` smart contract to listen to:
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 ```
 
+### Collector
+
+```toml
+[collector]
+start_interval = 100 # defaults to 100 when omitted
+```
+
+`start_interval` is how many blocks below the indexer's last block the initial log scan starts.
+Because the relay keeps no durable cursor, this window is rescanned on every restart: a larger
+value recovers instructions missed while the relay was down, at the cost of reprocessing (re-signing
+and re-sending) everything else in the window. Set it to `0` to start at the last block and never
+look back.
+
 ### C-chain indexer database
 
 Credentials for the C-chain indexer database:

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +27,28 @@ chain_id = 14
 		require.NoError(t, err)
 		require.Equal(t, uint64(14), cfg.ChainID)
 		require.False(t, cfg.AllowUnsafeURLs)
+		require.Equal(t, config.DefaultStartInterval, cfg.Collector.StartInterval)
+	})
+
+	t.Run("start interval override", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[collector]
+start_interval = 7
+`))
+		require.NoError(t, err)
+		require.Equal(t, uint64(7), cfg.Collector.StartInterval)
+	})
+
+	// an explicit zero must survive, not fall back to the default
+	t.Run("start interval explicit zero", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[collector]
+start_interval = 0
+`))
+		require.NoError(t, err)
+		require.Zero(t, cfg.Collector.StartInterval)
 	})
 
 	t.Run("missing file", func(t *testing.T) {

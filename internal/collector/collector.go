@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const startInterval = 100               // TODO: set it; indexing starts from the last block minus start interval
 const requestInterval = 2 * time.Second // TODO: set the frequency of database requests
 
 // TeeInstructionsSentSel is the event selector (topic0) of the TeeInstructionsSent event.
@@ -39,11 +38,13 @@ func init() {
 type Collector struct {
 	DB              *gorm.DB // c-chain indexer db
 	flareTeeManager common.Address
+	startInterval   uint64
 }
 
 // New creates a new Collector that connects to database.
-func New(db *gorm.DB, flareTeeManager common.Address) *Collector {
-	collector := Collector{DB: db, flareTeeManager: flareTeeManager}
+// startInterval is how many blocks below the indexer's last block the initial scan starts.
+func New(db *gorm.DB, flareTeeManager common.Address, startInterval uint64) *Collector {
+	collector := Collector{DB: db, flareTeeManager: flareTeeManager, startInterval: startInterval}
 
 	return &collector
 }
@@ -64,7 +65,7 @@ func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []da
 	}
 
 	wg.Add(1)
-	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, requestInterval, out)
+	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, c.startInterval, requestInterval, out)
 
 	return nil
 }
@@ -87,6 +88,7 @@ func instructionsListener(
 	wg *sync.WaitGroup,
 	db *gorm.DB,
 	flareTeeManager common.Address,
+	startInterval uint64,
 	listenerInterval time.Duration,
 	out chan<- []database.Log,
 ) {
