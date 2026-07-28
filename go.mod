@@ -4,8 +4,8 @@ go 1.25.11
 
 require (
 	github.com/ethereum/go-ethereum v1.17.2
-	github.com/flare-foundation/go-flare-common v1.2.2-0.20260619092858-10bd8c2bb674
-	github.com/flare-foundation/tee-node v0.0.21-0.20260619113727-bd174a5aa450
+	github.com/flare-foundation/go-flare-common v1.2.2-0.20260727094511-09a10067e6a4
+	github.com/flare-foundation/tee-node v0.0.24
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	gorm.io/driver/sqlite v1.6.0
