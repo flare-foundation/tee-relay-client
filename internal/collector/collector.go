@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const startInterval = 100               // TODO: set it; indexing starts from the last block minus start interval
 const requestInterval = 2 * time.Second // TODO: set the frequency of database requests
 
 // TeeInstructionsSentSel is the event selector (topic0) of the TeeInstructionsSent event.
@@ -39,11 +38,13 @@ func init() {
 type Collector struct {
 	DB              *gorm.DB // c-chain indexer db
 	flareTeeManager common.Address
+	startInterval   int64
 }
 
 // New creates a new Collector that connects to database.
-func New(db *gorm.DB, flareTeeManager common.Address) *Collector {
-	collector := Collector{DB: db, flareTeeManager: flareTeeManager}
+// startInterval is how many blocks below the indexer's last block the initial scan starts.
+func New(db *gorm.DB, flareTeeManager common.Address, startInterval int64) *Collector {
+	collector := Collector{DB: db, flareTeeManager: flareTeeManager, startInterval: startInterval}
 
 	return &collector
 }
@@ -64,21 +65,21 @@ func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []da
 	}
 
 	wg.Add(1)
-	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, requestInterval, out)
+	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, c.startInterval, requestInterval, out)
 
 	return nil
 }
 
 // windowStart returns the lower bound (exclusive, per the (From, To] query) for
-// the initial log scan: startInterval blocks below index, clamped at 0. The
-// clamp is required because index is unsigned, so index - startInterval would
-// otherwise wrap on a fresh indexer (index < startInterval) and int64() it into
-// a negative From that scans from genesis.
-func windowStart(index, startInterval uint64) int64 {
-	if index <= startInterval {
+// the initial log scan: startInterval blocks below index, clamped at 0 so a fresh
+// indexer (index < startInterval) does not scan from a negative block.
+func windowStart(index uint64, startInterval int64) int64 {
+	i := int64(index)
+	if i < startInterval {
 		return 0
 	}
-	return int64(index - startInterval)
+
+	return i - startInterval
 }
 
 // instructionsListener repeatedly queries db for TeeInstructionsSent events emitted by the FlareTeeManager diamond and pushes them on to the instructions channel.
@@ -87,6 +88,7 @@ func instructionsListener(
 	wg *sync.WaitGroup,
 	db *gorm.DB,
 	flareTeeManager common.Address,
+	startInterval int64,
 	listenerInterval time.Duration,
 	out chan<- []database.Log,
 ) {

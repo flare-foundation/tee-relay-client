@@ -26,9 +26,32 @@ go build -o tee-relay ./cmd/main
 
 The binary expects `config.toml` to be present in the working directory.
 
+A reachable C-chain indexer database is required: the relay connects to it at startup and exits if it cannot.
+
 ### Docker
 
-TODO
+No image is published. Build with the provided `Dockerfile`, which can be used as is:
+
+```shell
+docker build -t tee-relay .
+docker run -d --name tee-relay \
+  -v /etc/tee-relay/config.toml:/app/config.toml:ro \
+  --env-file /etc/tee-relay/relay.env \
+  tee-relay
+```
+
+The runtime stage is `debian:trixie`, to which the build adds the binary and CA certificates. It sets `WORKDIR /app` and
+runs as uid 10001.
+
+- **Config** — mount at `/app/config.toml`. Must be readable by uid 10001, or startup panics with `permission denied`.
+- **Key** — `PRIVATE_KEY` is mandatory; pass it by env file or secret store, never in the image.
+- **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
+  `console = true` and read `docker logs`.
+- **Ports** — none, and no health endpoint; liveness comes from the logs.
+- **Stopping** — `SIGTERM` is handled, but in-flight instructions are not drained, and there is no durable cursor. They
+  are re-collected after restart only if `[collector] start_interval` is greater than zero and the instruction's block
+  is still inside that window (see [Collector](#collector)); queued FDC work is lost. To recover reliably, restart
+  before the window moves past the affected blocks.
 
 ## Configurations
 
@@ -68,6 +91,31 @@ Address of the `FlareTeeManager` smart contract to listen to:
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 ```
 
+### Chain ID
+
+Required. The chain the relay signs for — it is part of every signature the relay produces, so it must match the network
+the `flare_tee_manager` address is deployed on. Startup fails if it is unset or zero.
+
+```toml
+chain_id = 14 # Flare mainnet
+```
+
+### Collector
+
+```toml
+[collector]
+start_interval = 100 # defaults to 100 when omitted
+```
+
+`start_interval` is how many blocks below the indexer's last block the initial log scan starts.
+Because the relay keeps no durable cursor, this window is rescanned on every restart: a larger
+value recovers instructions missed while the relay was down, at the cost of reprocessing (re-signing
+and re-sending) everything else in the window. Set it to `0` to start immediately after the last
+block and never look back — the scan bound is exclusive, so the last block itself is not rescanned.
+
+Must not be negative. A value larger than the indexer's current block height starts the scan at the
+earliest block the indexer still retains, which reprocesses every instruction in it.
+
 ### C-chain indexer database
 
 Credentials for the C-chain indexer database:
@@ -85,6 +133,11 @@ log_queries = false
 The database should be operated by C-chain indexer connected to desired chain.
 The indexer should index `TeeInstructionsSent` events emitted by the FlareTeeManager diamond contract.
 
+Connection-pool limits are optional and default to whatever `database/sql` uses. They live in a nested `[db.pool]` table —
+`max_open_conns`, `max_idle_conns`, `conn_max_lifetime`, `conn_max_idle_time`. The relay queries the indexer from a single
+goroutine, so tuning them is rarely useful. Note that placing these keys directly under `[db]` instead of `[db.pool]` is
+rejected at startup as an unknown field.
+
 ### Signer
 
 The relay client requires access to a private key — the signing policy key for providers, or the designated cosigning key for cosigners. The key is used to:
@@ -93,7 +146,7 @@ The relay client requires access to a private key — the signing policy key for
 - identify and decrypt packages for key recovery
 - (cosigner mode only) identify relevant instructions
 
-Two modes are supported.
+Two modes are defined, but **the external signer is not implemented yet** — use the local signer.
 
 #### Local signer
 
@@ -112,6 +165,10 @@ export PRIVATE_KEY=0x<64 hex chars>
 ```
 
 #### External signer
+
+> **Not implemented yet.** External signing is not available in this release: no signer service
+> is deployed or operated for it, and the path is untested end to end. Run with
+> `signer.local = true`. The endpoints below specify the interface a future service must satisfy.
 
 The private key is held by an external signer service (typically the FSP client).
 
@@ -172,7 +229,7 @@ Response:
 
 Returns the secp256k1 public key coordinates of the key used for signing and decryption.
 
-A reference implementation is provided in [`go-flare-common/pkg/tee/signer`](https://github.com/flare-foundation/go-flare-common/tree/main/pkg/tee/signer).
+A prototype of such a service exists in [`go-flare-common/pkg/tee/signer`](https://github.com/flare-foundation/go-flare-common/tree/main/pkg/tee/signer). It is not part of a supported deployment.
 
 ### FDC2
 
@@ -210,10 +267,12 @@ are not sent in cleartext; `http` is acceptable only for a loopback address.
 
 ```toml
 [logger]
-level = "INFO"       # DEBUG, INFO, WARN, ERROR
+level = "INFO"       # DEBUG, INFO, WARN, ERROR (DPANIC, PANIC and FATAL are also accepted)
 console = true       # write logs to stdout
 file = ""            # path to log file; empty disables file logging
 max_file_size = 10   # max log file size in MB before rotation
+max_backups = 10     # number of rotated files to keep
+max_age_days = 30    # days to keep rotated files
 ```
 
 ## Environment variables

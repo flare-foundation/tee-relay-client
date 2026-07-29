@@ -10,12 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestConfig guards the quickstart: config.toml.example must be a config the relay
+// actually accepts, not merely one that parses.
 func TestConfig(t *testing.T) {
 	const path = "../../config.toml.example"
 
-	_, err := toml.Read[Config](path, true)
-
-	require.NoError(t, err)
+	cfg := Default()
+	require.NoError(t, toml.ReadTo(path, &cfg, false))
+	require.NoError(t, cfg.CheckAddress())
+	require.NoError(t, cfg.CheckChainID())
+	require.NoError(t, cfg.CheckStartInterval())
+	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
 }
 
 func TestPrivateKeyFromEnv(t *testing.T) {

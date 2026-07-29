@@ -1,4 +1,4 @@
-FROM golang:1.25.11-trixie@sha256:3140b898a3ec52ec5e8a7dc325a3dbdc732c35e0bde3fcc0e0d764c781d7da10 AS builder
+FROM golang:1.25.12-trixie@sha256:d41da62c5fa95d88bac8ea732451c00f76aefc5ba4931b694879f4ae15676db8 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -7,7 +7,9 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o ./tee-relay-client cmd/main/main.go
+# build the package, not a file list — a file list stamps the binary as
+# "command-line-arguments" with no module or vcs.revision provenance
+RUN go build -trimpath -o ./tee-relay-client ./cmd/main
 
 FROM debian:trixie@sha256:fd8f5a1df07b5195613e4b9a0b6a947d3772a151b81975db27d47f093f60c6e6 AS execution
 

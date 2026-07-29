@@ -4,6 +4,10 @@ is_cosigner = false
 
 chain_id = 14
 
+[collector]
+start_interval = 100 # blocks below the indexer's last block that the initial scan starts at
+
+
 # C-chain indexer db
 [db]
 host = "localhost"
@@ -12,6 +16,13 @@ database = "flare_ftso_indexer"
 username = "root"
 password = "root"
 log_queries = false
+
+# optional connection-pool limits; omitted = database/sql defaults
+# [db.pool]
+# max_open_conns = 10
+# max_idle_conns = 5
+# conn_max_lifetime = "1h"
+# conn_max_idle_time = "10m"
 
 
 [logger]
@@ -25,11 +36,12 @@ console = true
 
 # credentials for signer
 [signer]
-local = false
+local = true # external signer (local = false) is not implemented yet
 private_key_variable = "PRIVATE_KEY"
-url = ""
-key_name = ""
-key = ""
+# external signer only
+# url = ""
+# key_name = ""
+# key = ""
 
 # Terminal queue errors are drained and logged by the relay on a best-effort
 # basis (error_chan is forced on internally; setting it here has no effect).
@@ -46,6 +58,9 @@ max_workers = 50              # zero for unlimited
 max_attempts = 3
 time_off = "2s"
 
+
+# server.url must be filled in before FDC2 instructions can be verified; an empty
+# URL is not rejected at startup, it fails per instruction at ERROR
 
 [fdc.verifiers.availability]
 type = "TeeAvailabilityCheck"

@@ -1,6 +1,8 @@
 variables:
-  GOLANG_VERSION: "1.25.11"
+  GOLANG_VERSION: "1.25.12"
   GOLINT_VERSION: "v2.11.3"
+  GOVULNCHECK_VERSION: "v1.6.0"
+  COBERTURA_VERSION: "v1.5.0"
   COVERAGE_FILE: "coverage.out"
   COBERTURA_FILE: "coverage.xml"
 
@@ -31,6 +33,14 @@ lint:
   script:
     - golangci-lint run --timeout 5m0s
 
+vuln:
+  stage: test
+  image: golang:${GOLANG_VERSION}
+  needs: [build]
+  extends: .gocache
+  script:
+    - go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./...
+
 test:
   stage: test
   image: golang:${GOLANG_VERSION}
@@ -39,7 +49,7 @@ test:
   script:
     - go test -v -coverpkg=github.com/flare-foundation/tee-relay-client/... -coverprofile=${COVERAGE_FILE} -covermode count ./...
     - go tool cover -func=${COVERAGE_FILE}
-    - go run github.com/boumenot/gocover-cobertura@latest < ${COVERAGE_FILE} > ${COBERTURA_FILE}
+    - go run github.com/boumenot/gocover-cobertura@${COBERTURA_VERSION} < ${COVERAGE_FILE} > ${COBERTURA_FILE}
   artifacts:
     paths:
       - ${COVERAGE_FILE}

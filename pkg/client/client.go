@@ -1,3 +1,7 @@
+// Package client exposes the relay client constructor for use in tests of other
+// repositories. It is not a supported public API: New returns a type from
+// internal/, which callers outside this module cannot name. Production builds use
+// cmd/main, which calls internal/client directly.
 package client
 
 import (

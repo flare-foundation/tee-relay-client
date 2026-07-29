@@ -35,7 +35,7 @@ func TestCollector(t *testing.T) {
 
 	ti := common.HexToAddress("ab")
 
-	c := collector.New(db, ti)
+	c := collector.New(db, ti, 100)
 
 	now := uint64(time.Now().Unix())
 

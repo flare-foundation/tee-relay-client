@@ -55,7 +55,7 @@ func newWithDB(cfg config.Config, db *gorm.DB) (*Client, error) {
 		logger.Infof("running as data provider")
 	}
 
-	c := collector.New(db, cfg.FlareTeeManager)
+	c := collector.New(db, cfg.FlareTeeManager, cfg.Collector.StartInterval)
 	r, err := router.NewRouter(sgnr, cfg.ChainID, &cfg.FDC, filterer, cfg.AllowUnsafeURLs)
 	if err != nil {
 		return nil, fmt.Errorf("could not create router: %w", err)

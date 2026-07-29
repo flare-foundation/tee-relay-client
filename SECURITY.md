@@ -16,7 +16,7 @@ Please refer to our [Immunefi Bug Bounty Program](https://immunefi.com/bug-bount
 ## Vulnerability disclosures
 
 Critical vulnerabilities will be disclosed via GitHub's
-[security advisory]
+[security advisory](https://github.com/flare-foundation/tee-relay-client/security)
 system.
 
 ## Audit reports
