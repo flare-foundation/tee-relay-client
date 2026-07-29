@@ -23,7 +23,9 @@ const (
 // the ALLOW_UNSAFE_URLS environment override.
 func loadConfig(path string) (config.Config, error) {
 	cfg := config.Default()
-	if err := toml.ReadTo(path, &cfg, true); err != nil {
+	// Reject unknown keys: a misspelled is_cosigner would otherwise be discarded silently,
+	// leaving a cosigner deployment processing every instruction it sees.
+	if err := toml.ReadTo(path, &cfg, false); err != nil {
 		return cfg, fmt.Errorf("reading config: %w", err)
 	}
 	if err := cfg.CheckAddress(); err != nil {
@@ -31,6 +33,9 @@ func loadConfig(path string) (config.Config, error) {
 	}
 	if err := cfg.CheckChainID(); err != nil {
 		return cfg, fmt.Errorf("checking chain id: %w", err)
+	}
+	if err := cfg.CheckStartInterval(); err != nil {
+		return cfg, fmt.Errorf("checking start interval: %w", err)
 	}
 
 	if v, ok := os.LookupEnv(allowUnsafeURLsEnv); ok && v == "true" {

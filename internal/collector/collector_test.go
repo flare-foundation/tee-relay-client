@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/tee-relay-client/internal/collector"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -36,7 +35,7 @@ func TestCollector(t *testing.T) {
 
 	ti := common.HexToAddress("ab")
 
-	c := collector.New(db, ti, config.DefaultStartInterval)
+	c := collector.New(db, ti, 100)
 
 	now := uint64(time.Now().Unix())
 

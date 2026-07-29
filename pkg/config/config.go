@@ -21,7 +21,7 @@ import (
 const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 
 // DefaultStartInterval is the default Collector.StartInterval.
-const DefaultStartInterval uint64 = 100
+const DefaultStartInterval int64 = 100
 
 // Config holds the relay client configuration.
 type Config struct {
@@ -29,12 +29,16 @@ type Config struct {
 	Logging         logger.Config   `toml:"logger"`
 	FlareTeeManager common.Address  `toml:"flare_tee_manager"`
 
-	ChainID         uint64    `toml:"chain_id"`
-	IsCosigner      bool      `toml:"is_cosigner"`
-	Signer          Signer    `toml:"signer"` // credentials for signer
-	FDC             FDC       `toml:"fdc"`
-	Collector       Collector `toml:"collector"`
-	AllowUnsafeURLs bool      // set from ALLOW_UNSAFE_URLS env var — never from config file
+	ChainID    uint64    `toml:"chain_id"`
+	IsCosigner bool      `toml:"is_cosigner"`
+	Signer     Signer    `toml:"signer"` // credentials for signer
+	FDC        FDC       `toml:"fdc"`
+	Collector  Collector `toml:"collector"`
+
+	// AllowUnsafeURLs is set from the ALLOW_UNSAFE_URLS env var, never from the config file.
+	// toml:"-" is what enforces that: BurntSushi matches field names case-insensitively, so
+	// without it `AllowUnsafeURLs = true` in config.toml would disable SSRF protection.
+	AllowUnsafeURLs bool `toml:"-"`
 }
 
 // Default returns a Config carrying the default values for optional fields.
@@ -51,7 +55,9 @@ type Collector struct {
 	// StartInterval is how many blocks below the indexer's last block the initial
 	// scan starts. Instructions in that window are reprocessed on every restart,
 	// so it trades restart recovery against duplicate work; 0 starts at the last block.
-	StartInterval uint64 `toml:"start_interval"`
+	// Signed so a negative value fails CheckStartInterval — as uint64 it would decode
+	// to 2^64-1 and silently backfill from the indexer's earliest retained block.
+	StartInterval int64 `toml:"start_interval"`
 }
 
 // CheckAddress returns an error if the FlareTeeManager address is unset.
@@ -69,6 +75,15 @@ func (c *Config) CheckAddress() error {
 func (c *Config) CheckChainID() error {
 	if c.ChainID == 0 {
 		return errors.New("chain id should be a positive integer")
+	}
+
+	return nil
+}
+
+// CheckStartInterval returns an error if the collector's StartInterval is negative.
+func (c *Config) CheckStartInterval() error {
+	if c.Collector.StartInterval < 0 {
+		return fmt.Errorf("collector start_interval must not be negative, got %d", c.Collector.StartInterval)
 	}
 
 	return nil

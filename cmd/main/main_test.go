@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +26,7 @@ chain_id = 14
 		require.NoError(t, err)
 		require.Equal(t, uint64(14), cfg.ChainID)
 		require.False(t, cfg.AllowUnsafeURLs)
-		require.Equal(t, config.DefaultStartInterval, cfg.Collector.StartInterval)
+		require.Equal(t, int64(100), cfg.Collector.StartInterval) // the default README documents
 	})
 
 	t.Run("start interval override", func(t *testing.T) {
@@ -37,7 +36,7 @@ chain_id = 14
 start_interval = 7
 `))
 		require.NoError(t, err)
-		require.Equal(t, uint64(7), cfg.Collector.StartInterval)
+		require.Equal(t, int64(7), cfg.Collector.StartInterval)
 	})
 
 	// an explicit zero must survive, not fall back to the default
@@ -49,6 +48,33 @@ start_interval = 0
 `))
 		require.NoError(t, err)
 		require.Zero(t, cfg.Collector.StartInterval)
+	})
+
+	// a negative value would decode to 2^64-1 if the field were unsigned
+	t.Run("start interval negative", func(t *testing.T) {
+		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[collector]
+start_interval = -1
+`))
+		require.ErrorContains(t, err, "checking start interval")
+	})
+
+	t.Run("unknown key", func(t *testing.T) {
+		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+is_cosignerr = true
+`))
+		require.ErrorContains(t, err, "unknown field")
+	})
+
+	// AllowUnsafeURLs carries toml:"-", so the config file cannot reach it
+	t.Run("AllowUnsafeURLs not settable from file", func(t *testing.T) {
+		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+AllowUnsafeURLs = true
+`))
+		require.ErrorContains(t, err, "unknown field")
 	})
 
 	t.Run("missing file", func(t *testing.T) {
