@@ -75,7 +75,7 @@ func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []da
 // indexer (index < startInterval) does not scan from a negative block.
 func windowStart(index uint64, startInterval int64) int64 {
 	i := int64(index)
-	if i <= startInterval {
+	if i < startInterval {
 		return 0
 	}
 

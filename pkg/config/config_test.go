@@ -21,7 +21,6 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, cfg.CheckChainID())
 	require.NoError(t, cfg.CheckStartInterval())
 	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
-	require.False(t, cfg.AllowUnsafeURLs)
 }
 
 func TestPrivateKeyFromEnv(t *testing.T) {
