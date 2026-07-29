@@ -1,3 +1,7 @@
+// Package testutils provides signer helpers for tests, including tests in other
+// repositories — which is why it sits under pkg/ rather than internal/.
+//
+// DO NOT USE IN PRODUCTION.
 package testutils
 
 import (
