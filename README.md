@@ -40,15 +40,18 @@ docker run -d --name tee-relay \
   tee-relay
 ```
 
-The image holds only the binary and CA certificates, sets `WORKDIR /app`, and runs as uid 10001.
+The runtime stage is `debian:trixie`, to which the build adds the binary and CA certificates. It sets `WORKDIR /app` and
+runs as uid 10001.
 
 - **Config** — mount at `/app/config.toml`. Must be readable by uid 10001, or startup panics with `permission denied`.
 - **Key** — `PRIVATE_KEY` is mandatory; pass it by env file or secret store, never in the image.
 - **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
   `console = true` and read `docker logs`.
 - **Ports** — none, and no health endpoint; liveness comes from the logs.
-- **Stopping** — `SIGTERM` is handled, but in-flight instructions are not drained. They are normally re-collected after
-  restart via `[collector] start_interval` (see [Collector](#collector)).
+- **Stopping** — `SIGTERM` is handled, but in-flight instructions are not drained, and there is no durable cursor. They
+  are re-collected after restart only if `[collector] start_interval` is greater than zero and the instruction's block
+  is still inside that window (see [Collector](#collector)); queued FDC work is lost. To recover reliably, restart
+  before the window moves past the affected blocks.
 
 ## Configurations
 
@@ -88,6 +91,15 @@ Address of the `FlareTeeManager` smart contract to listen to:
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 ```
 
+### Chain ID
+
+Required. The chain the relay signs for — it is part of every signature the relay produces, so it must match the network
+the `flare_tee_manager` address is deployed on. Startup fails if it is unset or zero.
+
+```toml
+chain_id = 14 # Flare mainnet
+```
+
 ### Collector
 
 ```toml
@@ -98,8 +110,11 @@ start_interval = 100 # defaults to 100 when omitted
 `start_interval` is how many blocks below the indexer's last block the initial log scan starts.
 Because the relay keeps no durable cursor, this window is rescanned on every restart: a larger
 value recovers instructions missed while the relay was down, at the cost of reprocessing (re-signing
-and re-sending) everything else in the window. Set it to `0` to start at the last block and never
-look back.
+and re-sending) everything else in the window. Set it to `0` to start immediately after the last
+block and never look back — the scan bound is exclusive, so the last block itself is not rescanned.
+
+Must not be negative. A value larger than the indexer's current block height starts the scan at the
+earliest block the indexer still retains, which reprocesses every instruction in it.
 
 ### C-chain indexer database
 
@@ -117,6 +132,11 @@ log_queries = false
 
 The database should be operated by C-chain indexer connected to desired chain.
 The indexer should index `TeeInstructionsSent` events emitted by the FlareTeeManager diamond contract.
+
+Connection-pool limits are optional and default to whatever `database/sql` uses. They live in a nested `[db.pool]` table —
+`max_open_conns`, `max_idle_conns`, `conn_max_lifetime`, `conn_max_idle_time`. The relay queries the indexer from a single
+goroutine, so tuning them is rarely useful. Note that placing these keys directly under `[db]` instead of `[db.pool]` is
+rejected at startup as an unknown field.
 
 ### Signer
 
@@ -247,10 +267,12 @@ are not sent in cleartext; `http` is acceptable only for a loopback address.
 
 ```toml
 [logger]
-level = "INFO"       # DEBUG, INFO, WARN, ERROR
+level = "INFO"       # DEBUG, INFO, WARN, ERROR (DPANIC, PANIC and FATAL are also accepted)
 console = true       # write logs to stdout
 file = ""            # path to log file; empty disables file logging
 max_file_size = 10   # max log file size in MB before rotation
+max_backups = 10     # number of rotated files to keep
+max_age_days = 30    # days to keep rotated files
 ```
 
 ## Environment variables

@@ -17,6 +17,13 @@ username = "root"
 password = "root"
 log_queries = false
 
+# optional connection-pool limits; omitted = database/sql defaults
+# [db.pool]
+# max_open_conns = 10
+# max_idle_conns = 5
+# conn_max_lifetime = "1h"
+# conn_max_idle_time = "10m"
+
 
 [logger]
 level = "INFO"     # INFO shows startup/wiring, lifecycle, and failures; per-instruction tracing requires "DEBUG"
@@ -51,6 +58,9 @@ max_workers = 50              # zero for unlimited
 max_attempts = 3
 time_off = "2s"
 
+
+# server.url must be filled in before FDC2 instructions can be verified; an empty
+# URL is not rejected at startup, it fails per instruction at ERROR
 
 [fdc.verifiers.availability]
 type = "TeeAvailabilityCheck"
