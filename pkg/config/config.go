@@ -22,12 +22,17 @@ import (
 // DefaultPrivateKeyVariable is the default environment variable name holding the signer private key.
 const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 
+// FlareTeeManagerVariable is the environment variable name holding the FlareTeeManager contract address.
+const FlareTeeManagerVariable = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
+
 // DefaultStartInterval is the default Collector.StartInterval.
 const DefaultStartInterval int64 = 100
 
 // CutoverUnscheduled is the RelayCutover.StartingRewardEpoch value that keeps every
 // reward epoch on the pre-cutover digest.
 const CutoverUnscheduled int64 = -1
+
+var zeroAddress common.Address
 
 // Config holds the relay client configuration.
 type Config struct {
@@ -90,11 +95,46 @@ type Collector struct {
 
 // CheckAddress returns an error if the FlareTeeManager address is unset.
 func (c *Config) CheckAddress() error {
-	zeroAddress := common.Address{}
-
 	if c.FlareTeeManager == zeroAddress {
 		return errors.New("FlareTeeManager address not set")
 	}
+
+	return nil
+}
+
+// ApplyFlareTeeManagerEnv sets FlareTeeManager from the FLARE_TEE_MANAGER_CONTRACT_ADDRESS
+// environment variable if it is set. It must be called before CheckAddress — the variable
+// is an alternative to the config key, not only an override for it.
+//
+// The value is parsed exactly like the config key (0x-prefixed, 20 bytes). It returns an
+// error if the address is not parsable, zero, or differs from the one in the config file:
+// the address selects the contract whose instructions the relay signs, so a conflict has
+// no safe resolution.
+func (c *Config) ApplyFlareTeeManagerEnv() error {
+	value, exists := os.LookupEnv(FlareTeeManagerVariable)
+	if !exists {
+		return nil
+	}
+
+	value = strings.TrimSpace(value) // tolerate padding from env files and command substitution
+
+	var address common.Address
+	// the value is left out of the error — a secret pasted into the wrong variable would reach the logs
+	if err := address.UnmarshalText([]byte(value)); err != nil {
+		return fmt.Errorf("parsing %s: %w", FlareTeeManagerVariable, err)
+	}
+
+	if address == zeroAddress {
+		return fmt.Errorf("%s is the zero address", FlareTeeManagerVariable)
+	}
+
+	if c.FlareTeeManager != zeroAddress && c.FlareTeeManager != address {
+		return fmt.Errorf(
+			"%s is %s but flare_tee_manager in the config file is %s", FlareTeeManagerVariable, address, c.FlareTeeManager,
+		)
+	}
+
+	c.FlareTeeManager = address
 
 	return nil
 }

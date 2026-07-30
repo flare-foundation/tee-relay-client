@@ -19,14 +19,18 @@ const (
 	configPath string = "config.toml" // relative to project root
 )
 
-// loadConfig reads and validates the relay configuration from path and applies
-// the ALLOW_UNSAFE_URLS environment override.
+// loadConfig reads and validates the relay configuration from path and applies the
+// FLARE_TEE_MANAGER_CONTRACT_ADDRESS and ALLOW_UNSAFE_URLS environment overrides.
 func loadConfig(path string) (config.Config, error) {
 	cfg := config.Default()
 	// Reject unknown keys: a misspelled is_cosigner would otherwise be discarded silently,
 	// leaving a cosigner deployment processing every instruction it sees.
 	if err := toml.ReadTo(path, &cfg, false); err != nil {
 		return cfg, fmt.Errorf("reading config: %w", err)
+	}
+	// before CheckAddress — the env variable may be the only source of the address
+	if err := cfg.ApplyFlareTeeManagerEnv(); err != nil {
+		return cfg, fmt.Errorf("reading manager address from env: %w", err)
 	}
 	if err := cfg.CheckAddress(); err != nil {
 		return cfg, fmt.Errorf("checking address: %w", err)

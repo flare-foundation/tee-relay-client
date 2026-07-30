@@ -1,3 +1,4 @@
+# settable by FLARE_TEE_MANAGER_CONTRACT_ADDRESS instead; set in both places, the two must match
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
 is_cosigner = false
