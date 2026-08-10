@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"strings"
 
@@ -131,6 +132,22 @@ func (c *Config) CheckStartInterval() error {
 	return nil
 }
 
+// CheckQueues returns an error if any FDC queue has unset or degenerate retry parameters.
+func (c *Config) CheckQueues() error {
+	for name, q := range c.FDC.Queues {
+		if q.MaxAttempts < 1 {
+			// 0 (or omitted) silently turns every queue-level retry into a one-shot drop
+			return fmt.Errorf("queue %q: max_attempts must be at least 1, got %d", name, q.MaxAttempts)
+		}
+		if q.MaxAttempts > 1 && q.TimeOff <= 0 {
+			// retried items keep their weight: zero time_off burns all attempts instantly
+			return fmt.Errorf("queue %q: time_off must be positive when max_attempts > 1", name)
+		}
+	}
+
+	return nil
+}
+
 // Signer holds credentials for the signer.
 // If Local is true, the private key from the set env variable is used for local signing.
 type Signer struct {
@@ -148,13 +165,51 @@ type Credentials struct {
 }
 
 // Check checks if the credentials are valid.
+// A URL or key that only fails at request time surfaces as status 0 and is
+// retried as transient; validating here fails startup instead.
 func (c *Credentials) Check() error {
 	if c.URL == "" {
 		return errors.New("URL not set")
 	}
 
+	u, err := url.Parse(c.URL)
+	switch {
+	case err != nil:
+		return fmt.Errorf("invalid URL: %w", err)
+	case u.Scheme != "http" && u.Scheme != "https":
+		// catches "localhost:8080", which parses as scheme "localhost"
+		return fmt.Errorf("URL scheme must be http or https, got %q", u.Scheme)
+	case u.Host == "":
+		return errors.New("URL host not set")
+	}
+
 	if len(c.Key) != 0 && len(c.KeyName) == 0 {
 		return errors.New("unnamed api key")
+	}
+	if err := checkHeaderName(c.KeyName); err != nil {
+		return fmt.Errorf("key_name: %w", err)
+	}
+	if strings.ContainsAny(c.Key, "\r\n") {
+		return errors.New("key must not contain CR or LF")
+	}
+
+	return nil
+}
+
+// headerTokenSpecials are the non-alphanumeric RFC 7230 tchar bytes.
+const headerTokenSpecials = "!#$%&'*+-.^_`|~"
+
+// checkHeaderName returns an error if name cannot be sent as an HTTP header
+// field name. An empty name is valid — no API key header is sent.
+func checkHeaderName(name string) error {
+	for i := range len(name) {
+		b := name[i]
+		switch {
+		case 'a' <= b && b <= 'z', 'A' <= b && b <= 'Z', '0' <= b && b <= '9':
+		case strings.IndexByte(headerTokenSpecials, b) >= 0:
+		default:
+			return fmt.Errorf("byte %q is not a valid HTTP header name character", b)
+		}
 	}
 
 	return nil

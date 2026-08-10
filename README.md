@@ -280,6 +280,12 @@ max_attempts = 3
 time_off = "2s"
 ```
 
+Unlike `max_dequeues_per_second` and `max_workers` above, `max_attempts` has no
+zero-means-unlimited reading: it must be at least 1, and startup fails on 0 rather
+than treating it as "no retries"; 1 means a single attempt with no retry. `time_off`
+must be positive when `max_attempts` is greater than 1; it is unconstrained at
+`max_attempts = 1`.
+
 #### Verifiers
 
 ```toml
