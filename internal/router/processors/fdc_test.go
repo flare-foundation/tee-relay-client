@@ -35,4 +35,50 @@ func TestNewFDC(t *testing.T) {
 		_, err := NewFDC(cfg, base)
 		require.ErrorContains(t, err, "undefined queue")
 	})
+
+	t.Run("duplicate type and source", func(t *testing.T) {
+		cfg := &config.FDC{
+			Queues: map[string]priority.Params{"q": {MaxAttempts: 1}},
+			Verifiers: map[string]config.Verifier{
+				"a": {AttType: "TypeA", SourceID: "SrcA", QueueName: "q", Server: config.Credentials{URL: "http://a"}},
+				"b": {AttType: "TypeA", SourceID: "SrcA", QueueName: "q", Server: config.Credentials{URL: "http://b"}},
+			},
+		}
+		_, err := NewFDC(cfg, base)
+		require.ErrorContains(t, err, "both serve")
+		require.ErrorContains(t, err, "TypeA")
+	})
+
+	t.Run("verifier with empty type or source", func(t *testing.T) {
+		cfg := &config.FDC{
+			Queues: map[string]priority.Params{"q": {MaxAttempts: 1}},
+			Verifiers: map[string]config.Verifier{
+				"v": {AttType: "TypeA", QueueName: "q", Server: config.Credentials{URL: "http://v"}},
+			},
+		}
+		_, err := NewFDC(cfg, base)
+		require.ErrorContains(t, err, "empty type or source")
+	})
+
+	t.Run("verifier with empty server URL", func(t *testing.T) {
+		cfg := &config.FDC{
+			Queues: map[string]priority.Params{"q": {MaxAttempts: 1}},
+			Verifiers: map[string]config.Verifier{
+				"v": {AttType: "TypeA", SourceID: "SrcA", QueueName: "q"},
+			},
+		}
+		_, err := NewFDC(cfg, base)
+		require.ErrorContains(t, err, "URL not set")
+	})
+
+	t.Run("verifier with unnamed api key", func(t *testing.T) {
+		cfg := &config.FDC{
+			Queues: map[string]priority.Params{"q": {MaxAttempts: 1}},
+			Verifiers: map[string]config.Verifier{
+				"v": {AttType: "TypeA", SourceID: "SrcA", QueueName: "q", Server: config.Credentials{URL: "http://v", Key: "secret"}},
+			},
+		}
+		_, err := NewFDC(cfg, base)
+		require.ErrorContains(t, err, "unnamed api key")
+	})
 }

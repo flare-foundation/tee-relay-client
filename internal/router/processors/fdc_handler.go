@@ -38,10 +38,28 @@ func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandle
 		verifiers: make(map[[64]byte]Responder),
 	}
 
-	for _, v := range verifiers {
+	seen := make(map[[64]byte]string)
+
+	for name, v := range verifiers {
+		// a blank field still hashes to a valid identifier that no instruction ever matches
+		if v.AttType == "" || v.SourceID == "" {
+			return nil, fmt.Errorf("verifier %q: empty type or source (type %q, source %q)", name, v.AttType, v.SourceID)
+		}
+
 		identifier, err := v.AttTypeAndSourceID()
 		if err != nil {
 			return nil, fmt.Errorf("invalid verifier (type %q, source %q, queue %q): %w", v.AttType, v.SourceID, v.QueueName, err)
+		}
+
+		// a duplicate would be overwritten here and in NewFDC's queue map independently,
+		// so the winning server and queue could come from different entries
+		if prev, exists := seen[identifier]; exists {
+			return nil, fmt.Errorf("verifiers %q and %q both serve type %q, source %q", prev, name, v.AttType, v.SourceID)
+		}
+		seen[identifier] = name
+
+		if err := v.Server.Check(); err != nil {
+			return nil, fmt.Errorf("invalid verifier server (type %q, source %q, queue %q): %w", v.AttType, v.SourceID, v.QueueName, err)
 		}
 
 		fdcHandler.verifiers[identifier] = NewVerifier(&v.Server)

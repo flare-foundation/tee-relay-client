@@ -302,6 +302,15 @@ Verifier server URLs are operator-controlled and may point to local addresses.
 Use `https` for any non-loopback host so the API key and request/response bodies
 are not sent in cleartext; `http` is acceptable only for a loopback address.
 
+Startup fails if `server.url` is empty, fails to parse, has a scheme other than
+`http` or `https` (this is what rejects a bare `host:port` like `localhost:8080`,
+which parses with scheme `localhost`), or has an empty host. `server.key_name` may
+be empty only when `server.key` is empty; once `server.key` is set, `key_name` is
+required and must be a valid HTTP header name (letters, digits, and
+`` !#$%&'*+-.^_`|~ ``), and `key` must not contain CR or LF. Startup also fails if
+a verifier's `type` or `source` is empty or longer than 32 bytes, or if two
+verifiers share the same `type` and `source`.
+
 #### Verifier API
 
 The relay client queries a verifier with a single endpoint:
