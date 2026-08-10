@@ -296,6 +296,42 @@ Verifier server URLs are operator-controlled and may point to local addresses.
 Use `https` for any non-loopback host so the API key and request/response bodies
 are not sent in cleartext; `http` is acceptable only for a loopback address.
 
+#### Verifier API
+
+The relay client queries a verifier with a single endpoint:
+
+**`POST <server.url>`**
+
+Request:
+
+```json
+{
+  "attestationType": "<0x-prefixed 32-byte hex>",
+  "sourceId": "<0x-prefixed 32-byte hex>",
+  "requestBody": "<0x-prefixed hex>"
+}
+```
+
+Response (HTTP 200):
+
+```json
+{
+  "status": "<VERIFIED | RETRY | REJECTED>",
+  "responseBody": "<0x-prefixed hex; only with status VERIFIED>",
+  "message": "<reason; only with status RETRY or REJECTED>"
+}
+```
+
+`status` is the verifier's verdict on the request:
+
+- `VERIFIED` — the request is confirmed. `responseBody` carries the ABI-encoded attestation response and must be nonempty and at most 100 KiB (the instruction size limit enforced by the TEEs); `message` must be empty.
+- `RETRY` — the request cannot be decided yet (e.g. the queried data is not yet final); `message` says why and `responseBody` must be empty. The client re-enqueues the instruction: the queue retries it after `time_off`, up to `max_attempts` in total, then drops it.
+- `REJECTED` — the request is invalid or unconfirmable; `message` says why and `responseBody` must be empty. The client drops the instruction without retrying.
+
+An empty `responseBody` may also be encoded as JSON `null` or omitted entirely. Any other `status`, a `VERIFIED` response with an empty or oversized `responseBody`, or an undecodable body is a protocol error; the client treats it like `RETRY`.
+
+A non-200 status means the request was not processed. Within a single query the client retries `408`, `429`, `5xx`, and transport failures (3 attempts, 5 s apart); any other status fails the query at once, and the failed query is again retried through the queue. A non-200 response can carry a diagnostic reason in its body, but only with `Content-Type: text/plain` — bodies of any other content type are discarded. Responses are read up to 1 MiB; the client truncates `message` to 1 KiB.
+
 ### Logging
 
 ```toml
