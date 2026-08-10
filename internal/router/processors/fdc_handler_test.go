@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/tee-node/pkg/fdc"
+	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
@@ -39,6 +40,15 @@ type countingResponder struct {
 func (c countingResponder) Response(context.Context, fdc2.IFdc2HubFdc2AttestationRequest) (VerifierResponse, error) {
 	c.calls.Add(1)
 	return c.res, nil
+}
+
+// emptySigner returns no signatures and no error, breaking the Signer contract.
+type emptySigner struct{}
+
+func (emptySigner) Sign(context.Context, []common.Hash) ([]hexutil.Bytes, error) { return nil, nil }
+func (emptySigner) Decrypt(context.Context, []byte) (hexutil.Bytes, error)       { return nil, nil }
+func (emptySigner) Identify(context.Context) (types.PublicKey, error) {
+	return types.PublicKey{}, nil
 }
 
 func fdcRequest() (fdc2.IFdc2HubFdc2AttestationRequest, [64]byte) {
@@ -220,6 +230,16 @@ func TestFDCHandlerHandle(t *testing.T) {
 		err := newHandler(out, stubResponder{err: errors.New("boom")}).Handle(context.Background(), buildIB())
 		require.ErrorContains(t, err, "boom")
 		requireErrorNamesVerifier(t, err, ats)
+	})
+
+	t.Run("signer breaking the signature-count contract", func(t *testing.T) {
+		out := make(chan *instructions.Base, 1)
+		base := NewBase(chainID, config.RelayCutover{}, emptySigner{})
+		base.SetOut(out)
+		h := &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{ats: stubResponder{res: VerifierResponse{Status: StatusVerified, ResponseBody: []byte{0x01}}}}}
+		err := h.Handle(context.Background(), buildIB())
+		require.ErrorContains(t, err, "expected 1 signature")
+		require.Empty(t, out)
 	})
 
 	t.Run("no verifier for att type/source", func(t *testing.T) {

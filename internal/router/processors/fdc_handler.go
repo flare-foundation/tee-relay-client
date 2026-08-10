@@ -135,7 +135,11 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("signing response: %w", err)
 	}
 
-	ib.GeneralData.AdditionalVariableMessage = signature[0] // if err == nil, len(signature)=1
+	if len(signature) != 1 {
+		// Signer is an exported interface — enforce the one-hash/one-signature contract
+		return fmt.Errorf("expected 1 signature, got %d", len(signature))
+	}
+	ib.GeneralData.AdditionalVariableMessage = signature[0]
 
 	err = ib.Sign(ctx, h.signer, h.chainID)
 	if err != nil {

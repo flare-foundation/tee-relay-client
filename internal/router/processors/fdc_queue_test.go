@@ -19,6 +19,27 @@ func (h failingHandler) Handle(context.Context, *instructions.Base) error {
 	return h.err
 }
 
+// panickingHandler always panics.
+type panickingHandler struct{}
+
+func (panickingHandler) Handle(context.Context, *instructions.Base) error {
+	panic("kaboom")
+}
+
+func TestQueuePanicRecovered(t *testing.T) {
+	t.Parallel()
+
+	q := NewQueue(priority.Params{MaxAttempts: 1}, "queueA")
+	instrID := common.HexToHash("0x0badc0de")
+	ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: instrID}}
+
+	var err error
+	require.NotPanics(t, func() { err = q.wrapHandle(panickingHandler{})(t.Context(), ib) })
+	require.ErrorContains(t, err, "recovered panic")
+	require.ErrorContains(t, err, "kaboom")
+	require.ErrorContains(t, err, instrID.Hex())
+}
+
 func TestNewQueueErrorChanForced(t *testing.T) {
 	t.Parallel()
 	q := NewQueue(priority.Params{ErrorChan: false}, "queueA")
