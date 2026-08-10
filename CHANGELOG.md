@@ -9,6 +9,7 @@
 - **Breaking**: startup now fails on invalid config that previously degraded silently: FDC queues with `max_attempts` < 1 or retries without a positive `time_off`; credential URLs that are empty, non-http(s), or hostless; API keys with an invalid or missing `key_name`; verifiers with an empty `type` or `source`; two verifiers sharing the same type and source.
 - A verifier `responseBody` encoded as JSON `null` now decodes as empty instead of failing the response; a `VERIFIED` body over 100 KiB (the TEE instruction size limit) is rejected at the client.
 - Verifier HTTP retries back off exponentially with jitter (5s, then ~10s) instead of a fixed 5s, so concurrent workers do not retry a struggling verifier in lockstep; the retry budget covers the full worst-case schedule.
+- The signer retry budget now covers its full attempt schedule; previously it expired during the first inter-attempt delay, silently disabling retries.
 - A panic while handling a queued FDC instruction is recovered into a per-instruction error instead of crashing the relay.
 - A re-enqueued instruction that already verified skips the repeat verifier query and only redoes hashing/signing/emit.
 - Verifier HTTP responses are capped at 64 KiB of headers (previously the 10 MiB Go default).
