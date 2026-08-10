@@ -18,14 +18,14 @@ import (
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
-// Status is the verifier's verdict on an attestation request.
-type Status string
+// VerifierStatus is the verifier's verdict on an attestation request.
+type VerifierStatus string
 
 // Verifier response statuses. Any other value is a protocol violation.
 const (
-	StatusVerified Status = "VERIFIED"
-	StatusRetry    Status = "RETRY"
-	StatusRejected Status = "REJECTED"
+	StatusVerified VerifierStatus = "VERIFIED"
+	StatusRetry    VerifierStatus = "RETRY"
+	StatusRejected VerifierStatus = "REJECTED"
 )
 
 // ErrUnknownStatus marks a verifier response whose status is none of the defined values.
@@ -46,16 +46,16 @@ type VerifierRequest struct {
 
 // VerifierResponse is the verifier server's answer to a VerifierRequest.
 type VerifierResponse struct {
-	Status       Status        `json:"status"`
-	ResponseBody hexutil.Bytes `json:"responseBody,omitempty"` // nonempty iff Status is VERIFIED
-	Message      string        `json:"message,omitempty"`      // reason when Status is not VERIFIED
+	Status       VerifierStatus `json:"status"`
+	ResponseBody hexutil.Bytes  `json:"responseBody,omitempty"` // nonempty iff Status is VERIFIED
+	Message      string         `json:"message,omitempty"`      // reason when Status is not VERIFIED
 }
 
 // UnmarshalJSON decodes a verifier response, treating a JSON null responseBody
 // as absent — hexutil.Bytes alone rejects null, a common encoding of "no body".
 func (r *VerifierResponse) UnmarshalJSON(b []byte) error {
 	var aux struct {
-		Status       Status          `json:"status"`
+		Status       VerifierStatus  `json:"status"`
 		ResponseBody json.RawMessage `json:"responseBody"`
 		Message      string          `json:"message"`
 	}
@@ -127,7 +127,7 @@ func (v *Verifier) Response(ctx context.Context, request fdc2.IFdc2HubFdc2Attest
 		return VerifierResponse{}, err
 	}
 
-	return validate(*res)
+	return validateResponse(*res)
 }
 
 // maxMessageLen and maxStatusLen cap untrusted response fields quoted into errors and logs.
@@ -140,10 +140,10 @@ const (
 // (pkg/constraints); a bigger body would be signed only to be rejected by every TEE.
 const maxResponseBodyLen = 100 * 1024
 
-// validate enforces the wire contract on a decoded response.
+// validateResponse enforces the wire contract on a decoded response.
 // ResponseBody of a non-VERIFIED response and Message of a VERIFIED one are ignored, not rejected.
-func validate(res VerifierResponse) (VerifierResponse, error) {
-	res.Message = truncate(res.Message, maxMessageLen)
+func validateResponse(res VerifierResponse) (VerifierResponse, error) {
+	res.Message = truncateText(res.Message, maxMessageLen)
 
 	switch res.Status {
 	case StatusVerified:
@@ -155,14 +155,14 @@ func validate(res VerifierResponse) (VerifierResponse, error) {
 		}
 	case StatusRetry, StatusRejected:
 	default:
-		return VerifierResponse{}, fmt.Errorf("%w: %q", ErrUnknownStatus, truncate(string(res.Status), maxStatusLen))
+		return VerifierResponse{}, fmt.Errorf("%w: %q", ErrUnknownStatus, truncateText(string(res.Status), maxStatusLen))
 	}
 
 	return res, nil
 }
 
-// truncate returns s unchanged, or its first n bytes plus "..."; may split a UTF-8 rune.
-func truncate(s string, n int) string {
+// truncateText returns s unchanged, or its first n bytes plus "..."; may split a UTF-8 rune.
+func truncateText(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
