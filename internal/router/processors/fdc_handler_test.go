@@ -242,6 +242,15 @@ func TestFDCHandlerHandle(t *testing.T) {
 		require.Empty(t, out)
 	})
 
+	t.Run("ctx cancelled while emitting", func(t *testing.T) {
+		out := make(chan *instructions.Base) // unbuffered: the send can never proceed
+		h := newHandler(out, stubResponder{res: VerifierResponse{Status: StatusVerified, ResponseBody: []byte{0x01}}})
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		require.ErrorIs(t, h.Handle(ctx, buildIB()), context.Canceled)
+	})
+
 	t.Run("no verifier for att type/source", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
 		base := NewBase(chainID, config.RelayCutover{}, signer.NewLocal(opKey))

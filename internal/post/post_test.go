@@ -178,6 +178,28 @@ func TestWithRetryErrorTextCapped(t *testing.T) {
 	require.LessOrEqual(t, len(err.Error()), maxErrLen+len("..."))
 }
 
+// TestWithRetryBudgetExpiry expires the retry budget while an attempt is still
+// in flight: retry.Execute abandons the attempt goroutine, which finishes after
+// WithRetry returned — srv.Close in Cleanup blocks on the handler, so the late
+// counter write lands inside the race detector's window.
+func TestWithRetryBudgetExpiry(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	p := Params{
+		Call:  call.Params{Timeout: time.Second, MaxResponseSize: 1 << 20},
+		Retry: retry.Params{MaxAttempts: 100, Delay: time.Millisecond, Timeout: 50 * time.Millisecond},
+	}
+
+	_, err := WithRetry[struct{}, reply](context.Background(), srv.URL, call.NoAPIKey, struct{}{}, p)
+	require.Error(t, err)
+}
+
 func TestWithRetryNoServer(t *testing.T) {
 	t.Parallel()
 

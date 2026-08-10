@@ -17,7 +17,9 @@ import (
 
 // Weight for ordering of the FDC queues.
 //
-// An item has higher priority if it has arrived earlier.
+// An item has higher priority if it has arrived earlier. Arrival is Add time,
+// not on-chain order: instructions from one collector batch are stamped in
+// scheduler order, microseconds apart.
 type Weight struct{ time.Time }
 
 // Self returns the Weight itself.
