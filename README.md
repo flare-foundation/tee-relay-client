@@ -96,6 +96,10 @@ flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 Required. The chain the relay signs for — it is part of every signature the relay produces, so it must match the network
 the `flare_tee_manager` address is deployed on. Startup fails if it is unset or zero.
 
+It must also equal the `Relay` contract's `sourceChainId`, which is what the chain hashes into the FDC2 signature digest.
+The relay has no RPC connection and cannot read it, so the value is trusted as configured; the two always agree because
+FDC2 is only deployed alongside a home `Relay`, where `sourceChainId` is forced to the network's own chain id.
+
 ```toml
 chain_id = 14 # Flare mainnet
 ```
@@ -236,6 +240,12 @@ A prototype of such a service exists in [`go-flare-common/pkg/tee/signer`](https
 One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector). FDC2 instructions require additional processing — the relay client must query designated verifier servers to obtain attestation responses.
 
 A verifier must be configured for each supported (attestation type, source) pair. To avoid overloading servers, each verifier is backed by a queue. Multiple verifiers can share a queue when they point to the same server.
+
+The relay signs each attestation response with the `Relay` Mode-2 digest of the reward epoch the instruction carries. From a chain's breaking reward epoch on, that digest binds the chain id — `keccak256(chain_id ‖ 0x010000000000 ‖ messageHash)` — because the new `Relay` recovers signatures against it; before that epoch the pre-cutover form, without the chain id, is used.
+
+The boundary is compiled in per chain in `internal/router/processors/digest.go` and is not configurable. Flare is chain-bound from its first reward epoch, since no relay client runs there before the new `Relay` is deployed; Coston, Coston2 and Songbird switch at their announced epochs; any other chain id is chain-bound throughout. A listed chain whose epoch is not set yet keeps signing the pre-cutover form and logs a warning at startup.
+
+TEE machines verify this signature inside the enclave before adding their own and gate on the same boundary, so the epoch they use must match the one here — a disagreement rejects every response on one side of it.
 
 #### Queues
 

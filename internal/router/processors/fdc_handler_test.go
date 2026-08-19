@@ -50,9 +50,11 @@ func fdcRequest() (fdc2.IFdc2HubFdc2AttestationRequest, [64]byte) {
 func TestFDCHandlerHandle(t *testing.T) {
 	t.Parallel()
 	const (
-		chainID   = uint64(14)
-		threshold = uint64(1)
-		timestamp = uint64(1718113274)
+		chainID     = uint64(14) // Flare: chain-bound digest from the first reward epoch
+		unscheduled = uint64(16) // Coston: no breaking reward epoch set yet
+		rewardEpoch = uint32(417)
+		threshold   = uint64(1)
+		timestamp   = uint64(1718113274)
 	)
 	opKey, operator := genKey(t)
 	cosigners := []common.Address{common.HexToAddress("0xc1"), common.HexToAddress("0xc2")}
@@ -66,12 +68,16 @@ func TestFDCHandlerHandle(t *testing.T) {
 		ib.Event = &instructions.InstructionSentEvent{Cosigners: cosigners, CosignersThreshold: threshold}
 		ib.GeneralData.OriginalMessage = msg
 		ib.GeneralData.Timestamp = timestamp
+		ib.GeneralData.RewardEpochID = rewardEpoch
 		return ib
 	}
-	newHandler := func(out chan *instructions.Base, r Responder) *FDCHandler {
-		base := NewBase(chainID, signer.NewLocal(opKey))
+	newHandlerOn := func(chain uint64, out chan *instructions.Base, r Responder) *FDCHandler {
+		base := NewBase(chain, signer.NewLocal(opKey))
 		base.SetOut(out)
 		return &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{ats: r}}
+	}
+	newHandler := func(out chan *instructions.Base, r Responder) *FDCHandler {
+		return newHandlerOn(chainID, out, r)
 	}
 
 	t.Run("happy path signs the relay-prefixed hash", func(t *testing.T) {
@@ -86,7 +92,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 
 		messageHash, _, err := fdc.HashMessage(chainID, req, respBody, cosigners, threshold, timestamp)
 		require.NoError(t, err)
-		want := fdc.RelayPrefixedHash(messageHash)
+		want := relayPrefixedHash(chainID, rewardEpoch, messageHash)
 
 		// the cosigner signature must recover the operator over the relay-prefixed hash...
 		pub, err := crypto.SigToPub(accounts.TextHash(want[:]), got.GeneralData.AdditionalVariableMessage)
@@ -97,6 +103,29 @@ func TestFDCHandlerHandle(t *testing.T) {
 		bare, err := crypto.SigToPub(accounts.TextHash(messageHash[:]), got.GeneralData.AdditionalVariableMessage)
 		require.NoError(t, err)
 		require.NotEqual(t, operator, crypto.PubkeyToAddress(*bare))
+
+		// ...nor over the pre-cutover digest that omitted the chain id.
+		unbound := fdc.RelayPrefixedHash(messageHash)
+		old, err := crypto.SigToPub(accounts.TextHash(unbound[:]), got.GeneralData.AdditionalVariableMessage)
+		require.NoError(t, err)
+		require.NotEqual(t, operator, crypto.PubkeyToAddress(*old))
+	})
+
+	t.Run("epoch before the boundary signs the pre-cutover digest", func(t *testing.T) {
+		respBody := []byte("attestation-response")
+		out := make(chan *instructions.Base, 1)
+		require.NoError(t, newHandlerOn(unscheduled, out, stubResponder{body: respBody, success: true}).
+			Handle(context.Background(), buildIB()))
+
+		got := <-out
+		messageHash, _, err := fdc.HashMessage(unscheduled, req, respBody, cosigners, threshold, timestamp)
+		require.NoError(t, err)
+		require.False(t, chainBoundDigest(unscheduled, rewardEpoch))
+
+		want := fdc.RelayPrefixedHash(messageHash)
+		pub, err := crypto.SigToPub(accounts.TextHash(want[:]), got.GeneralData.AdditionalVariableMessage)
+		require.NoError(t, err)
+		require.Equal(t, operator, crypto.PubkeyToAddress(*pub))
 	})
 
 	t.Run("verifier rejects -> nothing emitted", func(t *testing.T) {
