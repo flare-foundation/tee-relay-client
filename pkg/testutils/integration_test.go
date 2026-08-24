@@ -13,6 +13,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/tee-relay-client/internal/router"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +35,7 @@ func TestIntegration(t *testing.T) {
 	f, err := router.NewFilterer(false, sgnr)
 	require.NoError(t, err)
 
-	rtr, err := router.NewRouter(sgnr, chainID, nil, f, false)
+	rtr, err := router.NewRouter(sgnr, chainID, config.RelayCutover{}, nil, f, false)
 	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")
@@ -91,7 +92,7 @@ func TestIntegrationCosigner(t *testing.T) {
 	f, err := router.NewFilterer(true, sgnr)
 	require.NoError(t, err)
 
-	rtr, err := router.NewRouter(sgnr, chainID, nil, f, false)
+	rtr, err := router.NewRouter(sgnr, chainID, config.RelayCutover{}, nil, f, false)
 	require.NoError(t, err)
 
 	eventsFile, err := os.ReadFile("./events.json")

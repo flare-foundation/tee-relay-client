@@ -12,6 +12,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -66,7 +67,7 @@ func TestPlaintextForTEE(t *testing.T) {
 	relayProvider := relaySplit(t, walletKey, relayKey, id, chainID, false)
 	relayAdmin := relaySplit(t, walletKey, relayKey, id, chainID, true)
 
-	b := NewBackup(NewBase(chainID, signer.NewLocal(relayKey)), true)
+	b := NewBackup(NewBase(chainID, config.RelayCutover{}, signer.NewLocal(relayKey)), true)
 
 	t.Run("provider only", func(t *testing.T) {
 		wb := backup.WalletBackup{

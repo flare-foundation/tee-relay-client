@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -56,7 +57,7 @@ func TestProcessDataProviderRestore(t *testing.T) {
 
 	process := func(ib *instructions.Base) error {
 		out := make(chan *instructions.Base, 1)
-		base := NewBase(chainID, signer.NewLocal(operatorKey))
+		base := NewBase(chainID, config.RelayCutover{}, signer.NewLocal(operatorKey))
 		base.SetOut(out)
 		return NewBackup(base, true).Process(context.Background(), ib)
 	}

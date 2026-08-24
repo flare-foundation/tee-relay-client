@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -23,6 +24,10 @@ const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 // DefaultStartInterval is the default Collector.StartInterval.
 const DefaultStartInterval int64 = 100
 
+// CutoverUnscheduled is the RelayCutover.StartingRewardEpoch value that keeps every
+// reward epoch on the pre-cutover digest.
+const CutoverUnscheduled int64 = -1
+
 // Config holds the relay client configuration.
 type Config struct {
 	DB              database.Config `toml:"db"`
@@ -34,6 +39,8 @@ type Config struct {
 	Signer     Signer    `toml:"signer"` // credentials for signer
 	FDC        FDC       `toml:"fdc"`
 	Collector  Collector `toml:"collector"`
+
+	RelayCutover RelayCutover `toml:"relay_cutover"`
 
 	// AllowUnsafeURLs is set from the ALLOW_UNSAFE_URLS env var, never from the config file.
 	// toml:"-" is what enforces that: BurntSushi matches field names case-insensitively, so
@@ -48,6 +55,26 @@ func Default() Config {
 	return Config{
 		Collector: Collector{StartInterval: DefaultStartInterval},
 	}
+}
+
+// RelayCutover schedules the switch to the Relay that binds the source chain id into the
+// FDC2 signature digest. Only the reward epoch is configured: the relay reads no Relay
+// contract, so the new address is nothing it could use.
+//
+// Absent means the switch has already happened — every reward epoch is chain-bound. The
+// pre-cutover digest is opted into, either from a known epoch or, until one is announced,
+// with CutoverUnscheduled.
+type RelayCutover struct {
+	// StartingRewardEpoch is the first reward epoch signed with the chain-bound digest.
+	// Signed so CutoverUnscheduled is expressible and a typo'd negative is rejected
+	// rather than read as "never".
+	StartingRewardEpoch int64 `toml:"starting_reward_epoch"`
+}
+
+// ChainBound reports whether rewardEpochID's FDC2 response is signed with the chain-bound
+// digest rather than the pre-cutover one.
+func (c RelayCutover) ChainBound(rewardEpochID uint32) bool {
+	return c.StartingRewardEpoch >= 0 && int64(rewardEpochID) >= c.StartingRewardEpoch
 }
 
 // Collector holds the configuration of the indexer database listener.
@@ -75,6 +102,21 @@ func (c *Config) CheckAddress() error {
 func (c *Config) CheckChainID() error {
 	if c.ChainID == 0 {
 		return errors.New("chain id should be a positive integer")
+	}
+
+	return nil
+}
+
+// CheckRelayCutover returns an error if the cutover's starting reward epoch is neither
+// CutoverUnscheduled nor a reward epoch an instruction can carry.
+func (c *Config) CheckRelayCutover() error {
+	e := c.RelayCutover.StartingRewardEpoch
+
+	switch {
+	case e < 0 && e != CutoverUnscheduled:
+		return fmt.Errorf("relay_cutover.starting_reward_epoch must be %d (unscheduled) or non-negative, got %d", CutoverUnscheduled, e)
+	case e > math.MaxUint32:
+		return fmt.Errorf("relay_cutover.starting_reward_epoch %d exceeds the largest reward epoch id %d", e, uint32(math.MaxUint32))
 	}
 
 	return nil

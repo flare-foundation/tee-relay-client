@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/tee-node/pkg/fdc"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -50,8 +51,7 @@ func fdcRequest() (fdc2.IFdc2HubFdc2AttestationRequest, [64]byte) {
 func TestFDCHandlerHandle(t *testing.T) {
 	t.Parallel()
 	const (
-		chainID     = uint64(14) // Flare: chain-bound digest from the first reward epoch
-		unscheduled = uint64(16) // Coston: no breaking reward epoch set yet
+		chainID     = uint64(14)
 		rewardEpoch = uint32(417)
 		threshold   = uint64(1)
 		timestamp   = uint64(1718113274)
@@ -71,13 +71,14 @@ func TestFDCHandlerHandle(t *testing.T) {
 		ib.GeneralData.RewardEpochID = rewardEpoch
 		return ib
 	}
-	newHandlerOn := func(chain uint64, out chan *instructions.Base, r Responder) *FDCHandler {
-		base := NewBase(chain, signer.NewLocal(opKey))
+	newHandlerOn := func(cutover config.RelayCutover, out chan *instructions.Base, r Responder) *FDCHandler {
+		base := NewBase(chainID, cutover, signer.NewLocal(opKey))
 		base.SetOut(out)
 		return &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{ats: r}}
 	}
+	// no cutover configured: every reward epoch is chain-bound
 	newHandler := func(out chan *instructions.Base, r Responder) *FDCHandler {
-		return newHandlerOn(chainID, out, r)
+		return newHandlerOn(config.RelayCutover{}, out, r)
 	}
 
 	t.Run("happy path signs the relay-prefixed hash", func(t *testing.T) {
@@ -92,7 +93,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 
 		messageHash, _, err := fdc.HashMessage(chainID, req, respBody, cosigners, threshold, timestamp)
 		require.NoError(t, err)
-		want := relayPrefixedHash(chainID, rewardEpoch, messageHash)
+		want := relayPrefixedHash(chainID, true, messageHash)
 
 		// the cosigner signature must recover the operator over the relay-prefixed hash...
 		pub, err := crypto.SigToPub(accounts.TextHash(want[:]), got.GeneralData.AdditionalVariableMessage)
@@ -111,22 +112,59 @@ func TestFDCHandlerHandle(t *testing.T) {
 		require.NotEqual(t, operator, crypto.PubkeyToAddress(*old))
 	})
 
-	t.Run("epoch before the boundary signs the pre-cutover digest", func(t *testing.T) {
+	// Only this case has the boundary at the instruction's own reward epoch, so it is what
+	// pins that Handle reads it rather than any other epoch.
+	t.Run("boundary at the instruction epoch signs the chain-bound digest", func(t *testing.T) {
 		respBody := []byte("attestation-response")
 		out := make(chan *instructions.Base, 1)
-		require.NoError(t, newHandlerOn(unscheduled, out, stubResponder{body: respBody, success: true}).
+		cutover := config.RelayCutover{StartingRewardEpoch: int64(rewardEpoch)}
+		require.NoError(t, newHandlerOn(cutover, out, stubResponder{body: respBody, success: true}).
 			Handle(context.Background(), buildIB()))
 
 		got := <-out
-		messageHash, _, err := fdc.HashMessage(unscheduled, req, respBody, cosigners, threshold, timestamp)
+		messageHash, _, err := fdc.HashMessage(chainID, req, respBody, cosigners, threshold, timestamp)
 		require.NoError(t, err)
-		require.False(t, chainBoundDigest(unscheduled, rewardEpoch))
+		require.True(t, cutover.ChainBound(rewardEpoch))
+		require.False(t, cutover.ChainBound(0), "a lower epoch must pick the other form, or this pins nothing")
 
-		want := fdc.RelayPrefixedHash(messageHash)
+		want := relayPrefixedHash(chainID, true, messageHash)
 		pub, err := crypto.SigToPub(accounts.TextHash(want[:]), got.GeneralData.AdditionalVariableMessage)
 		require.NoError(t, err)
 		require.Equal(t, operator, crypto.PubkeyToAddress(*pub))
 	})
+
+	// The instruction is identical in both; only the configured cutover moves the digest.
+	preCutover := []struct {
+		name    string
+		cutover config.RelayCutover
+	}{
+		{"epoch below the configured boundary", config.RelayCutover{StartingRewardEpoch: int64(rewardEpoch) + 1}},
+		{"cutover unscheduled", config.RelayCutover{StartingRewardEpoch: config.CutoverUnscheduled}},
+	}
+	for _, test := range preCutover {
+		t.Run(test.name+" signs the pre-cutover digest", func(t *testing.T) {
+			respBody := []byte("attestation-response")
+			out := make(chan *instructions.Base, 1)
+			require.NoError(t, newHandlerOn(test.cutover, out, stubResponder{body: respBody, success: true}).
+				Handle(context.Background(), buildIB()))
+
+			got := <-out
+			messageHash, _, err := fdc.HashMessage(chainID, req, respBody, cosigners, threshold, timestamp)
+			require.NoError(t, err)
+			require.False(t, test.cutover.ChainBound(rewardEpoch))
+
+			want := fdc.RelayPrefixedHash(messageHash)
+			pub, err := crypto.SigToPub(accounts.TextHash(want[:]), got.GeneralData.AdditionalVariableMessage)
+			require.NoError(t, err)
+			require.Equal(t, operator, crypto.PubkeyToAddress(*pub))
+
+			// ...and not over the chain-bound digest the default cutover would have used.
+			bound := relayPrefixedHash(chainID, true, messageHash)
+			other, err := crypto.SigToPub(accounts.TextHash(bound[:]), got.GeneralData.AdditionalVariableMessage)
+			require.NoError(t, err)
+			require.NotEqual(t, operator, crypto.PubkeyToAddress(*other))
+		})
+	}
 
 	t.Run("verifier rejects -> nothing emitted", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
@@ -142,7 +180,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 
 	t.Run("no verifier for att type/source", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
-		base := NewBase(chainID, signer.NewLocal(opKey))
+		base := NewBase(chainID, config.RelayCutover{}, signer.NewLocal(opKey))
 		base.SetOut(out)
 		h := &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{}}
 		require.ErrorContains(t, h.Handle(context.Background(), buildIB()), "no verifier")

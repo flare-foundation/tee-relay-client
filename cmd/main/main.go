@@ -34,6 +34,9 @@ func loadConfig(path string) (config.Config, error) {
 	if err := cfg.CheckChainID(); err != nil {
 		return cfg, fmt.Errorf("checking chain id: %w", err)
 	}
+	if err := cfg.CheckRelayCutover(); err != nil {
+		return cfg, fmt.Errorf("checking relay cutover: %w", err)
+	}
 	if err := cfg.CheckStartInterval(); err != nil {
 		return cfg, fmt.Errorf("checking start interval: %w", err)
 	}

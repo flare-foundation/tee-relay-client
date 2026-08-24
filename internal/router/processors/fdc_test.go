@@ -12,7 +12,7 @@ import (
 func TestNewFDC(t *testing.T) {
 	t.Parallel()
 	key, _ := genKey(t)
-	base := NewBase(14, signer.NewLocal(key))
+	base := NewBase(14, config.RelayCutover{}, signer.NewLocal(key))
 
 	t.Run("nil cfg yields an empty FDC", func(t *testing.T) {
 		f, err := NewFDC(nil, base)
