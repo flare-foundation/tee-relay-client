@@ -4,6 +4,13 @@ is_cosigner = false
 
 chain_id = 14
 
+# Optional. The first reward epoch whose FDC2 responses are signed with the chain-bound
+# digest, which the Relay deployed at the cutover recovers signatures against. Omitted
+# means every reward epoch is chain-bound; -1 keeps the pre-cutover digest until the
+# chain's epoch is announced.
+# [relay_cutover]
+# starting_reward_epoch = 5451
+
 [collector]
 start_interval = 100 # blocks below the indexer's last block that the initial scan starts at
 

@@ -34,6 +34,8 @@ type Responder interface {
 
 // NewFDCHandler returns an FDCHandler that routes requests to the given verifiers.
 func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandler, error) {
+	logDigestSchedule(base.chainID, base.cutover)
+
 	fdcHandler := &FDCHandler{
 		Base:      base,
 		verifiers: make(map[[64]byte]Responder),
@@ -94,9 +96,12 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("hashing fdc message: %w", err)
 	}
 
-	// The chain recovers signatures against the Relay Mode-2 prefixed hash,
-	// not the bare messageHash.
-	hashToBeSigned := fdc.RelayPrefixedHash(messageHash)
+	// The chain recovers signatures against the Relay Mode-2 digest of the reward
+	// epoch's Relay, not the bare messageHash.
+	chainBound := h.cutover.ChainBound(ib.GeneralData.RewardEpochID)
+	hashToBeSigned := relayPrefixedHash(h.chainID, chainBound, messageHash)
+	logger.Debugf("signing instruction %s response for reward epoch %d, chain-bound digest %t",
+		common.Hash(ib.Event.InstructionId).Hex(), ib.GeneralData.RewardEpochID, chainBound)
 	signature, err := h.signer.Sign(ctx, []common.Hash{hashToBeSigned})
 	if err != nil {
 		return fmt.Errorf("signing response: %w", err)

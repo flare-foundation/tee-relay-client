@@ -18,7 +18,7 @@ func newTestRouter(t *testing.T) *Router {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
-	r, err := NewRouter(signer.NewLocal(key), 14, &config.FDC{}, &ProviderFilterer{}, false)
+	r, err := NewRouter(signer.NewLocal(key), 14, config.RelayCutover{}, &config.FDC{}, &ProviderFilterer{}, false)
 	require.NoError(t, err)
 	return r
 }

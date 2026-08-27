@@ -92,6 +92,16 @@ AllowUnsafeURLs = true
 		require.ErrorContains(t, err, "checking chain id")
 	})
 
+	t.Run("invalid relay cutover", func(t *testing.T) {
+		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+
+[relay_cutover]
+starting_reward_epoch = -2
+`))
+		require.ErrorContains(t, err, "checking relay cutover")
+	})
+
 	t.Run("ALLOW_UNSAFE_URLS override", func(t *testing.T) {
 		t.Setenv("ALLOW_UNSAFE_URLS", "true")
 		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"

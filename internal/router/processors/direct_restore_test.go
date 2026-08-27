@@ -19,6 +19,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +94,7 @@ func TestProcessDirectRestore(t *testing.T) {
 	}
 
 	processor := func(out chan *instructions.Base) *Backup {
-		base := NewBase(chainID, signer.NewLocal(operatorKey))
+		base := NewBase(chainID, config.RelayCutover{}, signer.NewLocal(operatorKey))
 		base.SetOut(out)
 		return NewBackup(base, true) // allowUnsafeURLs: reach the httptest loopback
 	}

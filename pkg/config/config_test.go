@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/hex"
+	"math"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,8 +20,72 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, toml.ReadTo(path, &cfg, false))
 	require.NoError(t, cfg.CheckAddress())
 	require.NoError(t, cfg.CheckChainID())
+	require.NoError(t, cfg.CheckRelayCutover())
 	require.NoError(t, cfg.CheckStartInterval())
 	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
+}
+
+func TestRelayCutoverChainBound(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		starting int64
+		epoch    uint32
+		want     bool
+	}{
+		{name: "unset binds every epoch", starting: 0, epoch: 0, want: true},
+		{name: "unset binds a late epoch", starting: 0, epoch: 5451, want: true},
+		{name: "epoch below the boundary", starting: 417, epoch: 416, want: false},
+		{name: "epoch at the boundary", starting: 417, epoch: 417, want: true},
+		{name: "epoch past the boundary", starting: 417, epoch: 418, want: true},
+		{name: "unscheduled binds nothing", starting: CutoverUnscheduled, epoch: 0, want: false},
+		{name: "unscheduled binds no late epoch", starting: CutoverUnscheduled, epoch: 5451, want: false},
+		// the boundary is expressible above the uint32 range CheckRelayCutover rejects
+		{name: "largest reward epoch at the boundary", starting: math.MaxUint32, epoch: math.MaxUint32, want: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := RelayCutover{StartingRewardEpoch: test.starting}
+			require.Equal(t, test.want, c.ChainBound(test.epoch))
+		})
+	}
+}
+
+func TestCheckRelayCutover(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		starting int64
+		errPart  string
+	}{
+		{name: "unset", starting: 0},
+		{name: "scheduled", starting: 5451},
+		{name: "unscheduled sentinel", starting: CutoverUnscheduled},
+		{name: "largest reward epoch", starting: math.MaxUint32},
+		{name: "other negative", starting: -2, errPart: "unscheduled"},
+		{name: "far negative", starting: -5451, errPart: "unscheduled"},
+		{name: "above the uint32 range", starting: math.MaxUint32 + 1, errPart: "exceeds"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := Config{RelayCutover: RelayCutover{StartingRewardEpoch: test.starting}}
+			err := cfg.CheckRelayCutover()
+
+			if test.errPart == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, test.errPart)
+		})
+	}
 }
 
 func TestPrivateKeyFromEnv(t *testing.T) {

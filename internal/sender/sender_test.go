@@ -56,7 +56,7 @@ func TestPrepareInstruction(t *testing.T) {
 
 	chainID := uint64(14)
 
-	r, err := router.NewRouter(s, chainID, &fdcCfg, nil, false)
+	r, err := router.NewRouter(s, chainID, config.RelayCutover{}, &fdcCfg, nil, false)
 	require.NoError(t, err)
 
 	out := make(chan *instructions.Base, 2)

@@ -79,7 +79,7 @@ func invalidVerifier() config.Verifier {
 func TestNewFDCHandlerInvalidVerifierDoesNotLeakKey(t *testing.T) {
 	t.Parallel()
 	key, _ := genKey(t)
-	base := NewBase(14, signer.NewLocal(key))
+	base := NewBase(14, config.RelayCutover{}, signer.NewLocal(key))
 
 	_, err := NewFDCHandler(base, map[string]config.Verifier{"v": invalidVerifier()})
 	require.ErrorContains(t, err, "queueA")
@@ -89,7 +89,7 @@ func TestNewFDCHandlerInvalidVerifierDoesNotLeakKey(t *testing.T) {
 func TestNewFDCInvalidVerifierDoesNotLeakKey(t *testing.T) {
 	t.Parallel()
 	key, _ := genKey(t)
-	base := NewBase(14, signer.NewLocal(key))
+	base := NewBase(14, config.RelayCutover{}, signer.NewLocal(key))
 
 	cfg := &config.FDC{
 		Queues:    map[string]priority.Params{},
