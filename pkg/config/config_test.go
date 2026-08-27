@@ -4,9 +4,11 @@ import (
 	"encoding/hex"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/stretchr/testify/require"
 )
@@ -22,6 +24,7 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, cfg.CheckChainID())
 	require.NoError(t, cfg.CheckRelayCutover())
 	require.NoError(t, cfg.CheckStartInterval())
+	require.NoError(t, cfg.CheckQueues())
 	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
 }
 
@@ -84,6 +87,117 @@ func TestCheckRelayCutover(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, test.errPart)
+		})
+	}
+}
+
+func TestCheckQueues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		params  priority.Params
+		wantErr string
+	}{
+		{
+			name:   "retries with time off",
+			params: priority.Params{MaxAttempts: 3, TimeOff: 2 * time.Second},
+		},
+		{
+			name:   "single attempt needs no time off",
+			params: priority.Params{MaxAttempts: 1},
+		},
+		{
+			name:    "zero max attempts",
+			params:  priority.Params{TimeOff: 2 * time.Second},
+			wantErr: "max_attempts",
+		},
+		{
+			name:    "retries without time off",
+			params:  priority.Params{MaxAttempts: 3},
+			wantErr: "time_off",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := Config{FDC: FDC{Queues: map[string]priority.Params{"q": tc.params}}}
+
+			err := cfg.CheckQueues()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+			require.ErrorContains(t, err, `"q"`)
+		})
+	}
+}
+
+func TestCredentialsCheck(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		creds   Credentials
+		wantErr string
+	}{
+		{
+			name:  "valid with key",
+			creds: Credentials{URL: "https://verifier.example.com", KeyName: "X-API-KEY", Key: "secret"},
+		},
+		{
+			name:  "valid without key",
+			creds: Credentials{URL: "http://localhost:8080"},
+		},
+		{
+			name:    "empty URL",
+			creds:   Credentials{},
+			wantErr: "URL not set",
+		},
+		{
+			name:    "missing scheme parses as scheme",
+			creds:   Credentials{URL: "localhost:8080"},
+			wantErr: "scheme",
+		},
+		{
+			name:    "unsupported scheme",
+			creds:   Credentials{URL: "ftp://host"},
+			wantErr: "scheme",
+		},
+		{
+			name:    "missing host",
+			creds:   Credentials{URL: "http://"},
+			wantErr: "host",
+		},
+		{
+			name:    "key without name",
+			creds:   Credentials{URL: "http://host", Key: "secret"},
+			wantErr: "unnamed api key",
+		},
+		{
+			name:    "spaced key name",
+			creds:   Credentials{URL: "http://host", KeyName: "X API KEY", Key: "secret"},
+			wantErr: "header name",
+		},
+		{
+			name:    "newline in key",
+			creds:   Credentials{URL: "http://host", KeyName: "X-API-KEY", Key: "se\ncret"},
+			wantErr: "CR or LF",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.creds.Check()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
 		})
 	}
 }

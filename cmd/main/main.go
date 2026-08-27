@@ -40,6 +40,9 @@ func loadConfig(path string) (config.Config, error) {
 	if err := cfg.CheckStartInterval(); err != nil {
 		return cfg, fmt.Errorf("checking start interval: %w", err)
 	}
+	if err := cfg.CheckQueues(); err != nil {
+		return cfg, fmt.Errorf("checking fdc queues: %w", err)
+	}
 
 	if v, ok := os.LookupEnv(allowUnsafeURLsEnv); ok && v == "true" {
 		cfg.AllowUnsafeURLs = true

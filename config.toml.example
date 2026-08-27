@@ -66,31 +66,32 @@ max_attempts = 3
 time_off = "2s"
 
 
-# server.url must be filled in before FDC2 instructions can be verified; an empty
-# URL is not rejected at startup, it fails per instruction at ERROR
+# Verifier blocks are commented out because server.url must be filled in first:
+# the relay rejects a verifier with an empty or invalid URL at startup, and two
+# verifiers must not share the same type and source.
 
-[fdc.verifiers.availability]
-type = "TeeAvailabilityCheck"
-source = "TEE"
-queue = "availability"
-server.url = ""
-server.key_name = "X-API-KEY"
-server.key = ""
-
-
-[fdc.verifiers.payment]
-type = "PMWPaymentStatus"
-source = "XRP"
-queue = "pmw"
-server.url = ""
-server.key_name = "X-API-KEY"
-server.key = ""
+# [fdc.verifiers.availability]
+# type = "TeeAvailabilityCheck"
+# source = "TEE"
+# queue = "availability"
+# server.url = ""
+# server.key_name = "X-API-KEY"
+# server.key = ""
 
 
-[fdc.verifiers.account]
-type = "PMWMultisigAccountConfigured"
-source = "XRP"
-queue = "pmw"
-server.url = ""
-server.key_name = "X-API-KEY"
-server.key = ""
+# [fdc.verifiers.payment]
+# type = "PMWPaymentStatus"
+# source = "XRP"
+# queue = "pmw"
+# server.url = ""
+# server.key_name = "X-API-KEY"
+# server.key = ""
+
+
+# [fdc.verifiers.account]
+# type = "PMWMultisigAccountConfigured"
+# source = "XRP"
+# queue = "pmw"
+# server.url = ""
+# server.key_name = "X-API-KEY"
+# server.key = ""

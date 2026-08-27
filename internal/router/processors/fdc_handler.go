@@ -24,12 +24,9 @@ type FDCHandler struct {
 	verifiers map[[64]byte]Responder
 }
 
-var _ Responder = &Verifier{}
-
 // Responder provides attestation responses for attestation requests.
-// Response returns the attestation response bytes, a success flag, and an error.
 type Responder interface {
-	Response(context.Context, fdc2.IFdc2HubFdc2AttestationRequest) ([]byte, bool, error)
+	Response(context.Context, fdc2.IFdc2HubFdc2AttestationRequest) (VerifierResponse, error)
 }
 
 // NewFDCHandler returns an FDCHandler that routes requests to the given verifiers.
@@ -41,13 +38,31 @@ func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandle
 		verifiers: make(map[[64]byte]Responder),
 	}
 
-	for _, v := range verifiers {
+	seen := make(map[[64]byte]string)
+
+	for name, v := range verifiers {
+		// a blank field still hashes to a valid identifier that no instruction ever matches
+		if v.AttType == "" || v.SourceID == "" {
+			return nil, fmt.Errorf("verifier %q: empty type or source (type %q, source %q)", name, v.AttType, v.SourceID)
+		}
+
 		identifier, err := v.AttTypeAndSourceID()
 		if err != nil {
 			return nil, fmt.Errorf("invalid verifier (type %q, source %q, queue %q): %w", v.AttType, v.SourceID, v.QueueName, err)
 		}
 
-		fdcHandler.verifiers[identifier] = &Verifier{&v.Server}
+		// a duplicate would be overwritten here and in NewFDC's queue map independently,
+		// so the winning server and queue could come from different entries
+		if prev, exists := seen[identifier]; exists {
+			return nil, fmt.Errorf("verifiers %q and %q both serve type %q, source %q", prev, name, v.AttType, v.SourceID)
+		}
+		seen[identifier] = name
+
+		if err := v.Server.Check(); err != nil {
+			return nil, fmt.Errorf("invalid verifier server (type %q, source %q, queue %q): %w", v.AttType, v.SourceID, v.QueueName, err)
+		}
+
+		fdcHandler.verifiers[identifier] = NewVerifier(&v.Server)
 	}
 
 	return fdcHandler, nil
@@ -65,33 +80,46 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("reading att type and source ID: %w", err) // should never happen
 	}
 
+	attType, sourceID := atsStrings(ats)
+
 	v, exists := h.verifiers[ats]
 	if !exists {
-		attType, sourceID := atsStrings(ats)
 		return fmt.Errorf("no verifier for type: %s, source: %s", attType, sourceID)
 	}
 
-	start := time.Now()
-	attResponse, success, err := v.Response(ctx, fullRequest)
-	if !success {
-		attType, sourceID := atsStrings(ats)
-
+	// A re-enqueued instruction that already verified skips the verifier query:
+	// the queue re-pushes the same instance, and only a VERIFIED response sets
+	// AdditionalFixedMessage — so a retry after a signing/emit failure does not
+	// pay another verifier round-trip.
+	if len(ib.GeneralData.AdditionalFixedMessage) == 0 {
+		start := time.Now()
+		res, err := v.Response(ctx, fullRequest)
 		if err != nil {
-			// err can carry the verifier's response body; quote it so control
-			// characters cannot forge log lines.
-			logger.Debugf("verifier error for instruction %s (type %s, source %s): %s", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID, strconv.Quote(err.Error()))
-			return fmt.Errorf("getting attestation response: %w", err)
+			// type/source in the error identify the verifier in queue logs, where shared queues obscure it
+			return fmt.Errorf("getting attestation response (type %s, source %s): %w", attType, sourceID, err)
 		}
 
-		logger.Debugf("verifier rejected request from instruction %s (type %s, source %s)", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID)
+		switch res.Status {
+		case StatusVerified:
+		case StatusRetry:
+			// error return re-enqueues the instruction: the queue retries after time_off, up to max_attempts
+			return fmt.Errorf("verifier (type %s, source %s) status RETRY: %s", attType, sourceID, res.Message)
+		case StatusRejected:
+			logger.Debugf("verifier rejected request from instruction %s (type %s, source %s): %s", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID, strconv.Quote(res.Message))
 
-		return nil
+			return nil
+		default: // unreachable: Response validates the status
+			return fmt.Errorf("%w: %q", ErrUnknownStatus, res.Status)
+		}
+
+		logger.Debugf("verifier answered instruction %s in %s", common.Hash(ib.Event.InstructionId).Hex(), time.Since(start))
+
+		ib.GeneralData.AdditionalFixedMessage = res.ResponseBody
+	} else {
+		logger.Debugf("reusing verified response for instruction %s", common.Hash(ib.Event.InstructionId).Hex())
 	}
 
-	logger.Debugf("verifier answered instruction %s in %s", common.Hash(ib.Event.InstructionId).Hex(), time.Since(start))
-
-	ib.GeneralData.AdditionalFixedMessage = attResponse
-	messageHash, _, err := fdc.HashMessage(h.chainID, fullRequest, attResponse, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
+	messageHash, _, err := fdc.HashMessage(h.chainID, fullRequest, ib.GeneralData.AdditionalFixedMessage, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
 	if err != nil {
 		return fmt.Errorf("hashing fdc message: %w", err)
 	}
@@ -107,7 +135,11 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("signing response: %w", err)
 	}
 
-	ib.GeneralData.AdditionalVariableMessage = signature[0] // if err == nil, len(signature)=1
+	if len(signature) != 1 {
+		// Signer is an exported interface — enforce the one-hash/one-signature contract
+		return fmt.Errorf("expected 1 signature, got %d", len(signature))
+	}
+	ib.GeneralData.AdditionalVariableMessage = signature[0]
 
 	err = ib.Sign(ctx, h.signer, h.chainID)
 	if err != nil {
