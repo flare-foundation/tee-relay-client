@@ -4,8 +4,8 @@ go 1.25.13
 
 require (
 	github.com/ethereum/go-ethereum v1.17.2
-	github.com/flare-foundation/go-flare-common v1.2.2-0.20260727094511-09a10067e6a4
-	github.com/flare-foundation/tee-node v0.0.24
+	github.com/flare-foundation/go-flare-common v1.2.2-0.20260820114858-51165807a89f
+	github.com/flare-foundation/tee-node v0.0.26
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	gorm.io/driver/sqlite v1.6.0
@@ -13,6 +13,7 @@ require (
 )
 
 require (
+	filippo.io/bigmod v0.1.0 // indirect
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect

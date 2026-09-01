@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,8 +21,8 @@ import (
 func relaySplit(t *testing.T, walletKey, ownerKey *ecdsa.PrivateKey, id wallets.WalletBackupID, chainID uint64, isAdmin bool) hexutil.Bytes {
 	t.Helper()
 	ksd := backup.KeySplitData{
-		Shares:                []backup.ShamirShare{{X: big.NewInt(1), Y: big.NewInt(2)}},
-		PartialWalletBackupID: backup.PartialWalletBackupID{WalletBackupID: id, PartialPubKey: pubKey64(walletKey), IsAdmin: isAdmin},
+		Shares:                []backup.ShamirShare{{X: 1, Y: []byte{2}}},
+		PartialWalletBackupID: backup.PartialWalletBackupID{WalletBackupID: id, IsAdmin: isAdmin},
 		OwnerPublicKey:        types.PubKeyToStruct(&ownerKey.PublicKey),
 	}
 	signHash, err := ksd.SignHash(chainID)
