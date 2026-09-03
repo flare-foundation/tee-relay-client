@@ -5,10 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 const validManager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
+
+const otherManager = "0x1111111111111111111111111111111111111111"
 
 // writeConfig writes body to a temporary config.toml and returns its path.
 func writeConfig(t *testing.T, body string) string {
@@ -18,7 +23,17 @@ func writeConfig(t *testing.T, body string) string {
 	return path
 }
 
+// unsetManagerEnv clears FLARE_TEE_MANAGER_CONTRACT_ADDRESS for the duration of the test —
+// an ambient value supplies the address the cases below expect to come from the config file.
+func unsetManagerEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv(config.FlareTeeManagerVariable, "") // registers the restore of the original value
+	require.NoError(t, os.Unsetenv(config.FlareTeeManagerVariable))
+}
+
 func TestLoadConfig(t *testing.T) {
+	unsetManagerEnv(t) // subtests that want the variable set it themselves
+
 	t.Run("valid", func(t *testing.T) {
 		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
 chain_id = 14
@@ -109,5 +124,38 @@ chain_id = 14
 `))
 		require.NoError(t, err)
 		require.True(t, cfg.AllowUnsafeURLs)
+	})
+
+	// the env variable alone must satisfy CheckAddress, so it has to be applied before it
+	t.Run("manager from env only", func(t *testing.T) {
+		t.Setenv(config.FlareTeeManagerVariable, validManager)
+		cfg, err := loadConfig(writeConfig(t, "chain_id = 14\n"))
+		require.NoError(t, err)
+		require.Equal(t, common.HexToAddress(validManager), cfg.FlareTeeManager)
+	})
+
+	t.Run("manager from env agreeing with the config", func(t *testing.T) {
+		t.Setenv(config.FlareTeeManagerVariable, validManager)
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+`))
+		require.NoError(t, err)
+		require.Equal(t, common.HexToAddress(validManager), cfg.FlareTeeManager)
+	})
+
+	t.Run("manager from env contradicting the config", func(t *testing.T) {
+		t.Setenv(config.FlareTeeManagerVariable, otherManager)
+		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+`))
+		require.ErrorContains(t, err, "reading manager address from env")
+	})
+
+	t.Run("manager from env not an address", func(t *testing.T) {
+		t.Setenv(config.FlareTeeManagerVariable, "nonsense")
+		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+`))
+		require.ErrorContains(t, err, "reading manager address from env")
 	})
 }

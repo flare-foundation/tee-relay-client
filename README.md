@@ -45,6 +45,9 @@ runs as uid 10001.
 
 - **Config** — mount at `/app/config.toml`. Must be readable by uid 10001, or startup panics with `permission denied`.
 - **Key** — `PRIVATE_KEY` is mandatory; pass it by env file or secret store, never in the image.
+- **Contract address** — `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` supplies `flare_tee_manager`, so the address can come
+  from the deployment environment instead of the mounted config. Set in both places, the two must agree (see
+  [FlareTeeManager address](#flareteemanager-address)).
 - **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
   `console = true` and read `docker logs`.
 - **Ports** — none, and no health endpoint; liveness comes from the logs.
@@ -85,11 +88,17 @@ is_cosigner = true
 
 ### FlareTeeManager address
 
-Address of the `FlareTeeManager` smart contract to listen to:
+Required. Address of the `FlareTeeManager` smart contract to listen to:
 
 ```toml
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 ```
+
+It can be set by the `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` environment variable instead, in the same
+`0x`-prefixed form. If both sources are used they must agree — a conflict fails startup rather than
+picking a winner, since the address decides which contract's instructions the relay signs.
+[`chain_id`](#chain-id) has no environment counterpart: it stays in the config file and must match the
+network this address is deployed on.
 
 ### Chain ID
 
@@ -361,7 +370,8 @@ max_age_days = 30    # days to keep rotated files
 
 ## Environment variables
 
-| Variable            | Required                   | Description                                                                                                                                                      |
-| ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PRIVATE_KEY`       | When `signer.local = true` | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                               |
-| `ALLOW_UNSAFE_URLS` | No                         | Set to `true` to disable SSRF protection on backup and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled. |
+| Variable                             | Required                          | Description                                                                                                                                                             |
+| ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRIVATE_KEY`                        | When `signer.local = true`        | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                                      |
+| `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` | When `flare_tee_manager` is unset | Address of the `FlareTeeManager` contract, `0x`-prefixed. Startup fails if the value is not an address, is zero, or contradicts `flare_tee_manager` in the config file. |
+| `ALLOW_UNSAFE_URLS`                  | No                                | Set to `true` to disable SSRF protection on backup and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled.        |

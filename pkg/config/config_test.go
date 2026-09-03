@@ -3,15 +3,20 @@ package config
 import (
 	"encoding/hex"
 	"math"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/stretchr/testify/require"
 )
+
+const managerHex = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
 // TestConfig guards the quickstart: config.toml.example must be a config the relay
 // actually accepts, not merely one that parses.
@@ -198,6 +203,65 @@ func TestCredentialsCheck(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// unsetManagerEnv clears FlareTeeManagerVariable for the duration of the test — an
+// ambient value would otherwise decide the outcome of the cases that assert on its absence.
+func unsetManagerEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv(FlareTeeManagerVariable, "") // registers the restore of the original value
+	require.NoError(t, os.Unsetenv(FlareTeeManagerVariable))
+}
+
+func TestApplyFlareTeeManagerEnv(t *testing.T) {
+	manager := common.HexToAddress(managerHex)
+	other := common.HexToAddress("0x1111111111111111111111111111111111111111")
+
+	tests := []struct {
+		name     string
+		setEnv   bool
+		envValue string
+		cfgAddr  common.Address
+		want     common.Address
+		fail     bool
+	}{
+		{name: "not set keeps the config address", cfgAddr: manager, want: manager},
+		{name: "not set and no config address", want: zeroAddress},
+		{name: "env only", setEnv: true, envValue: managerHex, want: manager},
+		{name: "env matches config", setEnv: true, envValue: managerHex, cfgAddr: manager, want: manager},
+		{name: "checksum ignored", setEnv: true, envValue: "0xde25c06982ab8e4b6b4f910896e3f93ac77fb44d", cfgAddr: manager, want: manager},
+		{name: "padding trimmed", setEnv: true, envValue: " " + managerHex + "\n", want: manager},
+		{name: "env contradicts config", setEnv: true, envValue: other.Hex(), cfgAddr: manager, fail: true},
+		{name: "empty", setEnv: true, envValue: "", fail: true},
+		{name: "whitespace only", setEnv: true, envValue: "  ", fail: true},
+		{name: "no 0x prefix", setEnv: true, envValue: managerHex[2:], fail: true},
+		{name: "too short", setEnv: true, envValue: managerHex[:20], fail: true},
+		{name: "right length but not hex", setEnv: true, envValue: "0x" + strings.Repeat("z", 2*common.AddressLength), fail: true},
+		{name: "zero address", setEnv: true, envValue: zeroAddress.Hex(), fail: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setEnv {
+				t.Setenv(FlareTeeManagerVariable, tt.envValue)
+			} else {
+				unsetManagerEnv(t)
+			}
+
+			cfg := Config{FlareTeeManager: tt.cfgAddr}
+			err := cfg.ApplyFlareTeeManagerEnv()
+
+			if tt.fail {
+				require.Error(t, err)
+				require.Equal(t, tt.cfgAddr, cfg.FlareTeeManager, "a rejected value must not be applied")
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cfg.FlareTeeManager)
 		})
 	}
 }
