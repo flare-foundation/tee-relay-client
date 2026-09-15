@@ -1,8 +1,16 @@
+# settable by FLARE_TEE_MANAGER_CONTRACT_ADDRESS instead; set in both places, the two must match
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
 is_cosigner = false
 
 chain_id = 14
+
+# Optional. The first reward epoch whose FDC2 responses are signed with the chain-bound
+# digest, which the Relay deployed at the cutover recovers signatures against. Omitted
+# means every reward epoch is chain-bound; -1 keeps the pre-cutover digest until the
+# chain's epoch is announced.
+# [relay_cutover]
+# starting_reward_epoch = 5451
 
 [collector]
 start_interval = 100 # blocks below the indexer's last block that the initial scan starts at
@@ -59,31 +67,32 @@ max_attempts = 3
 time_off = "2s"
 
 
-# server.url must be filled in before FDC2 instructions can be verified; an empty
-# URL is not rejected at startup, it fails per instruction at ERROR
+# Verifier blocks are commented out because server.url must be filled in first:
+# the relay rejects a verifier with an empty or invalid URL at startup, and two
+# verifiers must not share the same type and source.
 
-[fdc.verifiers.availability]
-type = "TeeAvailabilityCheck"
-source = "TEE"
-queue = "availability"
-server.url = ""
-server.key_name = "X-API-KEY"
-server.key = ""
-
-
-[fdc.verifiers.payment]
-type = "PMWPaymentStatus"
-source = "XRP"
-queue = "pmw"
-server.url = ""
-server.key_name = "X-API-KEY"
-server.key = ""
+# [fdc.verifiers.availability]
+# type = "TeeAvailabilityCheck"
+# source = "TEE"
+# queue = "availability"
+# server.url = ""
+# server.key_name = "X-API-KEY"
+# server.key = ""
 
 
-[fdc.verifiers.account]
-type = "PMWMultisigAccountConfigured"
-source = "XRP"
-queue = "pmw"
-server.url = ""
-server.key_name = "X-API-KEY"
-server.key = ""
+# [fdc.verifiers.payment]
+# type = "PMWPaymentStatus"
+# source = "XRP"
+# queue = "pmw"
+# server.url = ""
+# server.key_name = "X-API-KEY"
+# server.key = ""
+
+
+# [fdc.verifiers.account]
+# type = "PMWMultisigAccountConfigured"
+# source = "XRP"
+# queue = "pmw"
+# server.url = ""
+# server.key_name = "X-API-KEY"
+# server.key = ""

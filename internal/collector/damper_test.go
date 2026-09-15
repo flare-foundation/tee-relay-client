@@ -3,6 +3,7 @@ package collector
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -36,9 +37,9 @@ func (r *recorder) count(level string) int {
 }
 
 func (r *recorder) last(level string) string {
-	for i := len(r.logs) - 1; i >= 0; i-- {
-		if r.logs[i].level == level {
-			return r.logs[i].msg
+	for _, l := range slices.Backward(r.logs) {
+		if l.level == level {
+			return l.msg
 		}
 	}
 	return ""

@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math"
+	"net/url"
 	"os"
 	"strings"
 
@@ -20,8 +22,17 @@ import (
 // DefaultPrivateKeyVariable is the default environment variable name holding the signer private key.
 const DefaultPrivateKeyVariable = "PRIVATE_KEY"
 
+// FlareTeeManagerVariable is the environment variable name holding the FlareTeeManager contract address.
+const FlareTeeManagerVariable = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
+
 // DefaultStartInterval is the default Collector.StartInterval.
 const DefaultStartInterval int64 = 100
+
+// CutoverUnscheduled is the RelayCutover.StartingRewardEpoch value that keeps every
+// reward epoch on the pre-cutover digest.
+const CutoverUnscheduled int64 = -1
+
+var zeroAddress common.Address
 
 // Config holds the relay client configuration.
 type Config struct {
@@ -34,6 +45,8 @@ type Config struct {
 	Signer     Signer    `toml:"signer"` // credentials for signer
 	FDC        FDC       `toml:"fdc"`
 	Collector  Collector `toml:"collector"`
+
+	RelayCutover RelayCutover `toml:"relay_cutover"`
 
 	// AllowUnsafeURLs is set from the ALLOW_UNSAFE_URLS env var, never from the config file.
 	// toml:"-" is what enforces that: BurntSushi matches field names case-insensitively, so
@@ -50,6 +63,26 @@ func Default() Config {
 	}
 }
 
+// RelayCutover schedules the switch to the Relay that binds the source chain id into the
+// FDC2 signature digest. Only the reward epoch is configured: the relay reads no Relay
+// contract, so the new address is nothing it could use.
+//
+// Absent means the switch has already happened — every reward epoch is chain-bound. The
+// pre-cutover digest is opted into, either from a known epoch or, until one is announced,
+// with CutoverUnscheduled.
+type RelayCutover struct {
+	// StartingRewardEpoch is the first reward epoch signed with the chain-bound digest.
+	// Signed so CutoverUnscheduled is expressible and a typo'd negative is rejected
+	// rather than read as "never".
+	StartingRewardEpoch int64 `toml:"starting_reward_epoch"`
+}
+
+// ChainBound reports whether rewardEpochID's FDC2 response is signed with the chain-bound
+// digest rather than the pre-cutover one.
+func (c RelayCutover) ChainBound(rewardEpochID uint32) bool {
+	return c.StartingRewardEpoch >= 0 && int64(rewardEpochID) >= c.StartingRewardEpoch
+}
+
 // Collector holds the configuration of the indexer database listener.
 type Collector struct {
 	// StartInterval is how many blocks below the indexer's last block the initial
@@ -62,11 +95,46 @@ type Collector struct {
 
 // CheckAddress returns an error if the FlareTeeManager address is unset.
 func (c *Config) CheckAddress() error {
-	zeroAddress := common.Address{}
-
 	if c.FlareTeeManager == zeroAddress {
 		return errors.New("FlareTeeManager address not set")
 	}
+
+	return nil
+}
+
+// ApplyFlareTeeManagerEnv sets FlareTeeManager from the FLARE_TEE_MANAGER_CONTRACT_ADDRESS
+// environment variable if it is set. It must be called before CheckAddress — the variable
+// is an alternative to the config key, not only an override for it.
+//
+// The value is parsed exactly like the config key (0x-prefixed, 20 bytes). It returns an
+// error if the address is not parsable, zero, or differs from the one in the config file:
+// the address selects the contract whose instructions the relay signs, so a conflict has
+// no safe resolution.
+func (c *Config) ApplyFlareTeeManagerEnv() error {
+	value, exists := os.LookupEnv(FlareTeeManagerVariable)
+	if !exists {
+		return nil
+	}
+
+	value = strings.TrimSpace(value) // tolerate padding from env files and command substitution
+
+	var address common.Address
+	// the value is left out of the error — a secret pasted into the wrong variable would reach the logs
+	if err := address.UnmarshalText([]byte(value)); err != nil {
+		return fmt.Errorf("parsing %s: %w", FlareTeeManagerVariable, err)
+	}
+
+	if address == zeroAddress {
+		return fmt.Errorf("%s is the zero address", FlareTeeManagerVariable)
+	}
+
+	if c.FlareTeeManager != zeroAddress && c.FlareTeeManager != address {
+		return fmt.Errorf(
+			"%s is %s but flare_tee_manager in the config file is %s", FlareTeeManagerVariable, address, c.FlareTeeManager,
+		)
+	}
+
+	c.FlareTeeManager = address
 
 	return nil
 }
@@ -80,10 +148,41 @@ func (c *Config) CheckChainID() error {
 	return nil
 }
 
+// CheckRelayCutover returns an error if the cutover's starting reward epoch is neither
+// CutoverUnscheduled nor a reward epoch an instruction can carry.
+func (c *Config) CheckRelayCutover() error {
+	e := c.RelayCutover.StartingRewardEpoch
+
+	switch {
+	case e < 0 && e != CutoverUnscheduled:
+		return fmt.Errorf("relay_cutover.starting_reward_epoch must be %d (unscheduled) or non-negative, got %d", CutoverUnscheduled, e)
+	case e > math.MaxUint32:
+		return fmt.Errorf("relay_cutover.starting_reward_epoch %d exceeds the largest reward epoch id %d", e, uint32(math.MaxUint32))
+	}
+
+	return nil
+}
+
 // CheckStartInterval returns an error if the collector's StartInterval is negative.
 func (c *Config) CheckStartInterval() error {
 	if c.Collector.StartInterval < 0 {
 		return fmt.Errorf("collector start_interval must not be negative, got %d", c.Collector.StartInterval)
+	}
+
+	return nil
+}
+
+// CheckQueues returns an error if any FDC queue has unset or degenerate retry parameters.
+func (c *Config) CheckQueues() error {
+	for name, q := range c.FDC.Queues {
+		if q.MaxAttempts < 1 {
+			// 0 (or omitted) silently turns every queue-level retry into a one-shot drop
+			return fmt.Errorf("queue %q: max_attempts must be at least 1, got %d", name, q.MaxAttempts)
+		}
+		if q.MaxAttempts > 1 && q.TimeOff <= 0 {
+			// retried items keep their weight: zero time_off burns all attempts instantly
+			return fmt.Errorf("queue %q: time_off must be positive when max_attempts > 1", name)
+		}
 	}
 
 	return nil
@@ -106,13 +205,51 @@ type Credentials struct {
 }
 
 // Check checks if the credentials are valid.
+// A URL or key that only fails at request time surfaces as status 0 and is
+// retried as transient; validating here fails startup instead.
 func (c *Credentials) Check() error {
 	if c.URL == "" {
 		return errors.New("URL not set")
 	}
 
+	u, err := url.Parse(c.URL)
+	switch {
+	case err != nil:
+		return fmt.Errorf("invalid URL: %w", err)
+	case u.Scheme != "http" && u.Scheme != "https":
+		// catches "localhost:8080", which parses as scheme "localhost"
+		return fmt.Errorf("URL scheme must be http or https, got %q", u.Scheme)
+	case u.Host == "":
+		return errors.New("URL host not set")
+	}
+
 	if len(c.Key) != 0 && len(c.KeyName) == 0 {
 		return errors.New("unnamed api key")
+	}
+	if err := checkHeaderName(c.KeyName); err != nil {
+		return fmt.Errorf("key_name: %w", err)
+	}
+	if strings.ContainsAny(c.Key, "\r\n") {
+		return errors.New("key must not contain CR or LF")
+	}
+
+	return nil
+}
+
+// headerTokenSpecials are the non-alphanumeric RFC 7230 tchar bytes.
+const headerTokenSpecials = "!#$%&'*+-.^_`|~"
+
+// checkHeaderName returns an error if name cannot be sent as an HTTP header
+// field name. An empty name is valid — no API key header is sent.
+func checkHeaderName(name string) error {
+	for i := range len(name) {
+		b := name[i]
+		switch {
+		case 'a' <= b && b <= 'z', 'A' <= b && b <= 'Z', '0' <= b && b <= '9':
+		case strings.IndexByte(headerTokenSpecials, b) >= 0:
+		default:
+			return fmt.Errorf("byte %q is not a valid HTTP header name character", b)
+		}
 	}
 
 	return nil

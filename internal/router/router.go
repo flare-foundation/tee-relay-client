@@ -37,11 +37,11 @@ type Router struct {
 }
 
 // NewRouter assembles Router from configs.
-func NewRouter(signer signer.Signer, chainID uint64, fdcCfg *config.FDC, filterer Filterer, allowUnsafeURLs bool) (*Router, error) {
+func NewRouter(signer signer.Signer, chainID uint64, cutover config.RelayCutover, fdcCfg *config.FDC, filterer Filterer, allowUnsafeURLs bool) (*Router, error) {
 	r := new(Router)
 
 	r.Filterer = filterer
-	r.baseProcessor = processors.NewBase(chainID, signer)
+	r.baseProcessor = processors.NewBase(chainID, cutover, signer)
 	r.backupProcessor = processors.NewBackup(r.baseProcessor, allowUnsafeURLs)
 
 	var err error

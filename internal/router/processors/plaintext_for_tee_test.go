@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +11,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -21,8 +21,8 @@ import (
 func relaySplit(t *testing.T, walletKey, ownerKey *ecdsa.PrivateKey, id wallets.WalletBackupID, chainID uint64, isAdmin bool) hexutil.Bytes {
 	t.Helper()
 	ksd := backup.KeySplitData{
-		Shares:                []backup.ShamirShare{{X: big.NewInt(1), Y: big.NewInt(2)}},
-		PartialWalletBackupID: backup.PartialWalletBackupID{WalletBackupID: id, PartialPubKey: pubKey64(walletKey), IsAdmin: isAdmin},
+		Shares:                []backup.ShamirShare{{X: 1, Y: []byte{2}}},
+		PartialWalletBackupID: backup.PartialWalletBackupID{WalletBackupID: id, IsAdmin: isAdmin},
 		OwnerPublicKey:        types.PubKeyToStruct(&ownerKey.PublicKey),
 	}
 	signHash, err := ksd.SignHash(chainID)
@@ -66,7 +66,7 @@ func TestPlaintextForTEE(t *testing.T) {
 	relayProvider := relaySplit(t, walletKey, relayKey, id, chainID, false)
 	relayAdmin := relaySplit(t, walletKey, relayKey, id, chainID, true)
 
-	b := NewBackup(NewBase(chainID, signer.NewLocal(relayKey)), true)
+	b := NewBackup(NewBase(chainID, config.RelayCutover{}, signer.NewLocal(relayKey)), true)
 
 	t.Run("provider only", func(t *testing.T) {
 		wb := backup.WalletBackup{

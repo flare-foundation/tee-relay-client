@@ -70,6 +70,10 @@ func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 // StartQueues initiates FDC queues to process the inputs with the set verifiers and pass the result
 // to the base processor.
 func (f *FDC) StartQueues(ctx context.Context, wg *sync.WaitGroup) {
+	if len(f.idToQueueName) == 0 {
+		logger.Warnf("no FDC verifiers configured — FDC2 PROVE instructions will fail")
+	}
+
 	for name, q := range f.queues {
 		logger.Infof("started FDC queue %s", name)
 		q.InitiateAndRun(ctx)

@@ -23,6 +23,7 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -78,10 +79,9 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	// Provider split owned by the relay, signed by the wallet key, ECIES-encrypted
 	// to the relay.
 	ksd := backup.KeySplitData{
-		Shares: []backup.ShamirShare{{X: big.NewInt(1), Y: big.NewInt(2)}},
+		Shares: []backup.ShamirShare{{X: 1, Y: []byte{2}}},
 		PartialWalletBackupID: backup.PartialWalletBackupID{
 			WalletBackupID: id,
-			PartialPubKey:  pubKey64(walletKey),
 			IsAdmin:        false,
 		},
 		OwnerPublicKey: types.PubKeyToStruct(&relayKey.PublicKey),
@@ -96,14 +96,12 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 		Splits:           []hexutil.Bytes{eciesEncrypt(t, relayKey, keySplitBytes)},
 		OwnersPublicKeys: []types.PublicKey{types.PubKeyToStruct(&relayKey.PublicKey)},
 		Threshold:        1,
-		PublicKey:        pubKey64(walletKey),
 		Weights:          []uint16{1},
 	}
 	admin := &backup.EncryptedShares{
 		Splits:           []hexutil.Bytes{[]byte("admin-share-not-decrypted")},
 		OwnersPublicKeys: []types.PublicKey{types.PubKeyToStruct(&adminKey.PublicKey)},
 		Threshold:        1,
-		PublicKey:        pubKey64(adminKey),
 		Weights:          []uint16{1},
 	}
 
@@ -159,7 +157,7 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	ib.GeneralData.OriginalMessage = msg
 
 	out := make(chan *instructions.Base, 1)
-	base := NewBase(chainID, signer.NewLocal(relayKey))
+	base := NewBase(chainID, config.RelayCutover{}, signer.NewLocal(relayKey))
 	base.SetOut(out)
 	require.NoError(t, NewBackup(base, true).Process(context.Background(), ib))
 

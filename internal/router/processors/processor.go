@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
@@ -19,6 +20,8 @@ type Processor interface {
 // Base provides common logic for instruction processing, including signing and out channel for processed instructions.
 type Base struct {
 	chainID uint64
+	// cutover selects the FDC2 signature digest form per reward epoch.
+	cutover config.RelayCutover
 	// signer is used for signing instructions.
 	signer signer.Signer
 	// out is the channel to send processed instructions.
@@ -26,9 +29,10 @@ type Base struct {
 }
 
 // NewBase returns a Base that signs with signer; the out channel must be set separately via SetOut.
-func NewBase(chainID uint64, signer signer.Signer) (b *Base) {
+func NewBase(chainID uint64, cutover config.RelayCutover, signer signer.Signer) (b *Base) {
 	return &Base{
 		chainID: chainID,
+		cutover: cutover,
 		signer:  signer,
 	}
 }

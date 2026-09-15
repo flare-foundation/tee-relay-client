@@ -2,13 +2,21 @@ package config
 
 import (
 	"encoding/hex"
+	"math"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/stretchr/testify/require"
 )
+
+const managerHex = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 
 // TestConfig guards the quickstart: config.toml.example must be a config the relay
 // actually accepts, not merely one that parses.
@@ -19,8 +27,243 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, toml.ReadTo(path, &cfg, false))
 	require.NoError(t, cfg.CheckAddress())
 	require.NoError(t, cfg.CheckChainID())
+	require.NoError(t, cfg.CheckRelayCutover())
 	require.NoError(t, cfg.CheckStartInterval())
+	require.NoError(t, cfg.CheckQueues())
 	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
+}
+
+func TestRelayCutoverChainBound(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		starting int64
+		epoch    uint32
+		want     bool
+	}{
+		{name: "unset binds every epoch", starting: 0, epoch: 0, want: true},
+		{name: "unset binds a late epoch", starting: 0, epoch: 5451, want: true},
+		{name: "epoch below the boundary", starting: 417, epoch: 416, want: false},
+		{name: "epoch at the boundary", starting: 417, epoch: 417, want: true},
+		{name: "epoch past the boundary", starting: 417, epoch: 418, want: true},
+		{name: "unscheduled binds nothing", starting: CutoverUnscheduled, epoch: 0, want: false},
+		{name: "unscheduled binds no late epoch", starting: CutoverUnscheduled, epoch: 5451, want: false},
+		// the boundary is expressible above the uint32 range CheckRelayCutover rejects
+		{name: "largest reward epoch at the boundary", starting: math.MaxUint32, epoch: math.MaxUint32, want: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := RelayCutover{StartingRewardEpoch: test.starting}
+			require.Equal(t, test.want, c.ChainBound(test.epoch))
+		})
+	}
+}
+
+func TestCheckRelayCutover(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		starting int64
+		errPart  string
+	}{
+		{name: "unset", starting: 0},
+		{name: "scheduled", starting: 5451},
+		{name: "unscheduled sentinel", starting: CutoverUnscheduled},
+		{name: "largest reward epoch", starting: math.MaxUint32},
+		{name: "other negative", starting: -2, errPart: "unscheduled"},
+		{name: "far negative", starting: -5451, errPart: "unscheduled"},
+		{name: "above the uint32 range", starting: math.MaxUint32 + 1, errPart: "exceeds"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := Config{RelayCutover: RelayCutover{StartingRewardEpoch: test.starting}}
+			err := cfg.CheckRelayCutover()
+
+			if test.errPart == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, test.errPart)
+		})
+	}
+}
+
+func TestCheckQueues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		params  priority.Params
+		wantErr string
+	}{
+		{
+			name:   "retries with time off",
+			params: priority.Params{MaxAttempts: 3, TimeOff: 2 * time.Second},
+		},
+		{
+			name:   "single attempt needs no time off",
+			params: priority.Params{MaxAttempts: 1},
+		},
+		{
+			name:    "zero max attempts",
+			params:  priority.Params{TimeOff: 2 * time.Second},
+			wantErr: "max_attempts",
+		},
+		{
+			name:    "retries without time off",
+			params:  priority.Params{MaxAttempts: 3},
+			wantErr: "time_off",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := Config{FDC: FDC{Queues: map[string]priority.Params{"q": tc.params}}}
+
+			err := cfg.CheckQueues()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+			require.ErrorContains(t, err, `"q"`)
+		})
+	}
+}
+
+func TestCredentialsCheck(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		creds   Credentials
+		wantErr string
+	}{
+		{
+			name:  "valid with key",
+			creds: Credentials{URL: "https://verifier.example.com", KeyName: "X-API-KEY", Key: "secret"},
+		},
+		{
+			name:  "valid without key",
+			creds: Credentials{URL: "http://localhost:8080"},
+		},
+		{
+			name:    "empty URL",
+			creds:   Credentials{},
+			wantErr: "URL not set",
+		},
+		{
+			name:    "missing scheme parses as scheme",
+			creds:   Credentials{URL: "localhost:8080"},
+			wantErr: "scheme",
+		},
+		{
+			name:    "unsupported scheme",
+			creds:   Credentials{URL: "ftp://host"},
+			wantErr: "scheme",
+		},
+		{
+			name:    "missing host",
+			creds:   Credentials{URL: "http://"},
+			wantErr: "host",
+		},
+		{
+			name:    "key without name",
+			creds:   Credentials{URL: "http://host", Key: "secret"},
+			wantErr: "unnamed api key",
+		},
+		{
+			name:    "spaced key name",
+			creds:   Credentials{URL: "http://host", KeyName: "X API KEY", Key: "secret"},
+			wantErr: "header name",
+		},
+		{
+			name:    "newline in key",
+			creds:   Credentials{URL: "http://host", KeyName: "X-API-KEY", Key: "se\ncret"},
+			wantErr: "CR or LF",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.creds.Check()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// unsetManagerEnv clears FlareTeeManagerVariable for the duration of the test — an
+// ambient value would otherwise decide the outcome of the cases that assert on its absence.
+func unsetManagerEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv(FlareTeeManagerVariable, "") // registers the restore of the original value
+	require.NoError(t, os.Unsetenv(FlareTeeManagerVariable))
+}
+
+func TestApplyFlareTeeManagerEnv(t *testing.T) {
+	manager := common.HexToAddress(managerHex)
+	other := common.HexToAddress("0x1111111111111111111111111111111111111111")
+
+	tests := []struct {
+		name     string
+		setEnv   bool
+		envValue string
+		cfgAddr  common.Address
+		want     common.Address
+		fail     bool
+	}{
+		{name: "not set keeps the config address", cfgAddr: manager, want: manager},
+		{name: "not set and no config address", want: zeroAddress},
+		{name: "env only", setEnv: true, envValue: managerHex, want: manager},
+		{name: "env matches config", setEnv: true, envValue: managerHex, cfgAddr: manager, want: manager},
+		{name: "checksum ignored", setEnv: true, envValue: "0xde25c06982ab8e4b6b4f910896e3f93ac77fb44d", cfgAddr: manager, want: manager},
+		{name: "padding trimmed", setEnv: true, envValue: " " + managerHex + "\n", want: manager},
+		{name: "env contradicts config", setEnv: true, envValue: other.Hex(), cfgAddr: manager, fail: true},
+		{name: "empty", setEnv: true, envValue: "", fail: true},
+		{name: "whitespace only", setEnv: true, envValue: "  ", fail: true},
+		{name: "no 0x prefix", setEnv: true, envValue: managerHex[2:], fail: true},
+		{name: "too short", setEnv: true, envValue: managerHex[:20], fail: true},
+		{name: "right length but not hex", setEnv: true, envValue: "0x" + strings.Repeat("z", 2*common.AddressLength), fail: true},
+		{name: "zero address", setEnv: true, envValue: zeroAddress.Hex(), fail: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setEnv {
+				t.Setenv(FlareTeeManagerVariable, tt.envValue)
+			} else {
+				unsetManagerEnv(t)
+			}
+
+			cfg := Config{FlareTeeManager: tt.cfgAddr}
+			err := cfg.ApplyFlareTeeManagerEnv()
+
+			if tt.fail {
+				require.Error(t, err)
+				require.Equal(t, tt.cfgAddr, cfg.FlareTeeManager, "a rejected value must not be applied")
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cfg.FlareTeeManager)
+		})
+	}
 }
 
 func TestPrivateKeyFromEnv(t *testing.T) {

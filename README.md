@@ -45,6 +45,9 @@ runs as uid 10001.
 
 - **Config** — mount at `/app/config.toml`. Must be readable by uid 10001, or startup panics with `permission denied`.
 - **Key** — `PRIVATE_KEY` is mandatory; pass it by env file or secret store, never in the image.
+- **Contract address** — `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` supplies `flare_tee_manager`, so the address can come
+  from the deployment environment instead of the mounted config. Set in both places, the two must agree (see
+  [FlareTeeManager address](#flareteemanager-address)).
 - **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
   `console = true` and read `docker logs`.
 - **Ports** — none, and no health endpoint; liveness comes from the logs.
@@ -85,20 +88,50 @@ is_cosigner = true
 
 ### FlareTeeManager address
 
-Address of the `FlareTeeManager` smart contract to listen to:
+Required. Address of the `FlareTeeManager` smart contract to listen to:
 
 ```toml
 flare_tee_manager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
 ```
+
+It can be set by the `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` environment variable instead, in the same
+`0x`-prefixed form. If both sources are used they must agree — a conflict fails startup rather than
+picking a winner, since the address decides which contract's instructions the relay signs.
+[`chain_id`](#chain-id) has no environment counterpart: it stays in the config file and must match the
+network this address is deployed on.
 
 ### Chain ID
 
 Required. The chain the relay signs for — it is part of every signature the relay produces, so it must match the network
 the `flare_tee_manager` address is deployed on. Startup fails if it is unset or zero.
 
+It must also equal the `Relay` contract's `sourceChainId`, which is what the chain hashes into the FDC2 signature digest.
+The relay has no RPC connection and cannot read it, so the value is trusted as configured; the two always agree because
+FDC2 is only deployed alongside a home `Relay`, where `sourceChainId` is forced to the network's own chain id.
+
 ```toml
 chain_id = 14 # Flare mainnet
 ```
+
+### Relay cutover
+
+Optional. The first reward epoch whose FDC2 attestation responses are signed with the chain-bound digest — see
+[FDC2](#fdc2) for what the two digest forms are.
+
+```toml
+[relay_cutover]
+starting_reward_epoch = 5451
+```
+
+| value | effect |
+| --- | --- |
+| omitted, or `0` | every reward epoch is chain-bound |
+| `N > 0` | pre-cutover digest below `N`, chain-bound from `N` on |
+| `-1` | pre-cutover digest at every reward epoch |
+
+Omitting the block means the cutover has already happened, so a chain still awaiting it must say so with `-1` until its
+epoch is announced. Only the epoch is configured: the new `Relay`'s address is not, because the relay reads no `Relay`
+contract. The form in force is logged at startup, and `-1` is logged as a warning.
 
 ### Collector
 
@@ -237,6 +270,15 @@ One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector). FDC2
 
 A verifier must be configured for each supported (attestation type, source) pair. To avoid overloading servers, each verifier is backed by a queue. Multiple verifiers can share a queue when they point to the same server.
 
+The relay signs each attestation response with the `Relay` Mode-2 digest of the reward epoch the instruction carries. From the configured starting reward epoch on, that digest binds the chain id — `keccak256(chain_id ‖ 0x010000000000 ‖ messageHash)` — because the new `Relay` recovers signatures against it; before that epoch the pre-cutover form, without the chain id, is used.
+
+The boundary comes from `[relay_cutover]` (see [Relay cutover](#relay-cutover)), not from the binary.
+
+TEE machines verify this signature inside the enclave before adding their own, and they compute the chain-bound digest
+unconditionally — they carry no boundary of their own. The configured epoch is therefore only correct if it is the one
+the chain's contract batch and TEE fleet swap land in: below it the pre-cutover fleet serves the chain, at and above it
+the new one. A configured epoch that does not match the swap rejects every response on one side of it.
+
 #### Queues
 
 ```toml
@@ -246,6 +288,12 @@ max_workers = 50              # zero for unlimited
 max_attempts = 3
 time_off = "2s"
 ```
+
+Unlike `max_dequeues_per_second` and `max_workers` above, `max_attempts` has no
+zero-means-unlimited reading: it must be at least 1, and startup fails on 0 rather
+than treating it as "no retries"; 1 means a single attempt with no retry. `time_off`
+must be positive when `max_attempts` is greater than 1; it is unconstrained at
+`max_attempts = 1`.
 
 #### Verifiers
 
@@ -263,6 +311,51 @@ Verifier server URLs are operator-controlled and may point to local addresses.
 Use `https` for any non-loopback host so the API key and request/response bodies
 are not sent in cleartext; `http` is acceptable only for a loopback address.
 
+Startup fails if `server.url` is empty, fails to parse, has a scheme other than
+`http` or `https` (this is what rejects a bare `host:port` like `localhost:8080`,
+which parses with scheme `localhost`), or has an empty host. `server.key_name` may
+be empty only when `server.key` is empty; once `server.key` is set, `key_name` is
+required and must be a valid HTTP header name (letters, digits, and
+`` !#$%&'*+-.^_`|~ ``), and `key` must not contain CR or LF. Startup also fails if
+a verifier's `type` or `source` is empty or longer than 32 bytes, or if two
+verifiers share the same `type` and `source`.
+
+#### Verifier API
+
+The relay client queries a verifier with a single endpoint:
+
+**`POST <server.url>`**
+
+Request:
+
+```json
+{
+  "attestationType": "<0x-prefixed 32-byte hex>",
+  "sourceId": "<0x-prefixed 32-byte hex>",
+  "requestBody": "<0x-prefixed hex>"
+}
+```
+
+Response (HTTP 200):
+
+```json
+{
+  "status": "<VERIFIED | RETRY | REJECTED>",
+  "responseBody": "<0x-prefixed hex; only with status VERIFIED>",
+  "message": "<reason; only with status RETRY or REJECTED>"
+}
+```
+
+`status` is the verifier's verdict on the request:
+
+- `VERIFIED` — the request is confirmed. `responseBody` carries the ABI-encoded attestation response and must be nonempty and at most 100 KiB (the instruction size limit enforced by the TEEs); `message` must be empty.
+- `RETRY` — the request cannot be decided yet (e.g. the queried data is not yet final); `message` says why and `responseBody` must be empty. The client re-enqueues the instruction: the queue retries it after `time_off`, up to `max_attempts` in total, then drops it.
+- `REJECTED` — the request is invalid or unconfirmable; `message` says why and `responseBody` must be empty. The client drops the instruction without retrying.
+
+An empty `responseBody` may also be encoded as JSON `null` or omitted entirely. Any other `status`, a `VERIFIED` response with an empty or oversized `responseBody`, or an undecodable body is a protocol error; the client treats it like `RETRY`.
+
+A non-200 status means the request was not processed. Within a single query the client retries `408`, `429`, `5xx`, and transport failures (3 attempts, 5 s apart); any other status fails the query at once, and the failed query is again retried through the queue. A non-200 response can carry a diagnostic reason in its body, but only with `Content-Type: text/plain` — bodies of any other content type are discarded. Responses are read up to 1 MiB; the client truncates `message` to 1 KiB.
+
 ### Logging
 
 ```toml
@@ -277,7 +370,8 @@ max_age_days = 30    # days to keep rotated files
 
 ## Environment variables
 
-| Variable            | Required                   | Description                                                                                                                                                      |
-| ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PRIVATE_KEY`       | When `signer.local = true` | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                               |
-| `ALLOW_UNSAFE_URLS` | No                         | Set to `true` to disable SSRF protection on backup and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled. |
+| Variable                             | Required                          | Description                                                                                                                                                             |
+| ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRIVATE_KEY`                        | When `signer.local = true`        | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                                      |
+| `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` | When `flare_tee_manager` is unset | Address of the `FlareTeeManager` contract, `0x`-prefixed. Startup fails if the value is not an address, is zero, or contradicts `flare_tee_manager` in the config file. |
+| `ALLOW_UNSAFE_URLS`                  | No                                | Set to `true` to disable SSRF protection on backup and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled.        |

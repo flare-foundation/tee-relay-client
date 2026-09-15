@@ -3,6 +3,7 @@ package processors
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -16,7 +17,9 @@ import (
 
 // Weight for ordering of the FDC queues.
 //
-// An item has higher priority if it has arrived earlier.
+// An item has higher priority if it has arrived earlier. Arrival is Add time,
+// not on-chain order: instructions from one collector batch are stamped in
+// scheduler order, microseconds apart.
 type Weight struct{ time.Time }
 
 // Self returns the Weight itself.
@@ -56,12 +59,26 @@ type Handler interface {
 // wrapHandle logs when an instruction leaves the queue for handling, decorates a handler
 // error with the instruction ID, and logs the failed attempt at Debug.
 // The decorated error is what the queue retries and reports on the final attempt.
+// A panic in the handler is recovered into such an error: the queue's worker
+// goroutine has no recover of its own, so it would kill the whole relay.
 func (q *FDCQueue) wrapHandle(h Handler) func(context.Context, *instructions.Base) error {
-	return func(ctx context.Context, ib *instructions.Base) error {
-		logger.Debugf("queue %s: handling instruction %s", q.Name(), common.Hash(ib.Event.InstructionId).Hex())
-		err := h.Handle(ctx, ib)
+	return func(ctx context.Context, ib *instructions.Base) (err error) {
+		// id is computed after the defer so even a panic there is recovered
+		var id string
+
+		defer func() {
+			if rec := recover(); rec != nil {
+				err = fmt.Errorf("instruction %s: recovered panic: %v", id, rec)
+				logger.Errorf("queue %s: panic handling instruction %s: %v\n%s", q.Name(), id, rec, debug.Stack())
+			}
+		}()
+
+		id = common.Hash(ib.Event.InstructionId).Hex()
+
+		logger.Debugf("queue %s: handling instruction %s", q.Name(), id)
+		err = h.Handle(ctx, ib)
 		if err != nil {
-			err = fmt.Errorf("instruction %s: %w", common.Hash(ib.Event.InstructionId).Hex(), err)
+			err = fmt.Errorf("instruction %s: %w", id, err)
 			// quote: verifier errors can embed response bodies with control characters.
 			logger.Debugf("queue %s: attempt failed: %s", q.Name(), strconv.Quote(err.Error()))
 			return err

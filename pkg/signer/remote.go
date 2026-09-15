@@ -50,10 +50,12 @@ func (r *Remote) Sign(ctx context.Context, hashes []common.Hash) ([]hexutil.Byte
 		Timeout:         timeout,
 		MaxResponseSize: 50 + int64(bytesPerSignature*len(hashes)),
 	}, []int{},
+		// Timeout covers the whole schedule (3 x 5s calls + 2 x 10s delays = 35s)
+		// with slack; a shorter budget expires mid-delay and silently drops retries.
 		retry.Params{
 			MaxAttempts: 3,
 			Delay:       10 * time.Second,
-			Timeout:     10 * time.Second,
+			Timeout:     40 * time.Second,
 		})
 	if err != nil {
 		r.log.Debugf("sign of %d hashes failed in %s", len(hashes), time.Since(start))
@@ -78,10 +80,12 @@ func (r *Remote) Decrypt(ctx context.Context, cipher []byte) (hexutil.Bytes, err
 		Timeout:         timeout,
 		MaxResponseSize: int64(10 * (len(cipher) + 1)),
 	}, []int{},
+		// Timeout covers the whole schedule (3 x 5s calls + 2 x 10s delays = 35s)
+		// with slack; a shorter budget expires mid-delay and silently drops retries.
 		retry.Params{
 			MaxAttempts: 3,
 			Delay:       10 * time.Second,
-			Timeout:     10 * time.Second,
+			Timeout:     40 * time.Second,
 		})
 	if err != nil {
 		r.log.Debugf("decrypt of %d cipher bytes failed in %s", len(cipher), time.Since(start))
@@ -126,10 +130,11 @@ func (r *Remote) Identify(ctx context.Context) (types.PublicKey, error) {
 	request.Header.Set("Content-Type", "application/json")
 
 	start := time.Now()
+	// Timeout covers the whole schedule (3 x 10s calls + 2 x 5s delays = 40s) with slack.
 	re := retry.Execute(ctx, idCallFactory(client, request), retry.Params{
 		MaxAttempts: 3,
 		Delay:       5 * time.Second,
-		Timeout:     20 * time.Second,
+		Timeout:     45 * time.Second,
 	})
 	if !re.Success {
 		r.log.Debugf("identify failed in %s", time.Since(start))
