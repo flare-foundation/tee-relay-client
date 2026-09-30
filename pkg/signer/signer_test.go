@@ -2,7 +2,6 @@ package signer
 
 import (
 	"context"
-	"crypto/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -10,9 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-node/pkg/types"
+	"github.com/flare-foundation/tee-node/pkg/utils"
 	"github.com/flare-foundation/tee-relay-client/pkg/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -68,10 +66,7 @@ func TestRemote(t *testing.T) {
 	t.Run("decrypt", func(t *testing.T) {
 		plaintext := []byte("plaintextThatIsShort")
 
-		pke, err := signer.ECDSAPubKeyToECIES(&prv.PublicKey)
-		require.NoError(t, err)
-
-		cipher, err := ecies.Encrypt(rand.Reader, pke, plaintext, nil, nil)
+		cipher, err := utils.Encrypt(plaintext, &prv.PublicKey)
 		require.NoError(t, err)
 
 		dec, err := rs.Decrypt(ctx, cipher)
@@ -121,10 +116,7 @@ func TestLocal(t *testing.T) {
 	t.Run("decrypt", func(t *testing.T) {
 		plaintext := []byte("plaintextThatIsShort")
 
-		pke, err := signer.ECDSAPubKeyToECIES(&prv.PublicKey)
-		require.NoError(t, err)
-
-		cipher, err := ecies.Encrypt(rand.Reader, pke, plaintext, nil, nil)
+		cipher, err := utils.Encrypt(plaintext, &prv.PublicKey)
 		require.NoError(t, err)
 
 		dec, err := ls.Decrypt(ctx, cipher)

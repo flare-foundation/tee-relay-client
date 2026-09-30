@@ -3,7 +3,6 @@ package processors
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,14 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 
@@ -67,7 +63,7 @@ func (b *Backup) Process(ctx context.Context, ib *instructions.Base) error {
 // it fetches the backup, decrypts this data provider's key split, encrypts it
 // for the TEE, signs, and forwards.
 func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instructions.Base) error {
-	fullRequest, err := structs.Decode[wallet.IWalletBackupManagerKeyDataProviderRestore](wallet.MessageArguments[op.KeyDataProviderRestore], ib.GeneralData.OriginalMessage)
+	fullRequest, err := wallets.ParseKeyDataProviderRestore(&ib.GeneralData.DataFixed)
 	if err != nil {
 		return fmt.Errorf("decoding restore request: %w", err)
 	}
@@ -171,11 +167,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 		return fmt.Errorf("parsing TEE public key: %w", err)
 	}
 
-	pke, err := signer.ECDSAPubKeyToECIES(teePK)
-	if err != nil {
-		return fmt.Errorf("converting TEE public key to ECIES: %w", err)
-	}
-	cipher, err := ecies.Encrypt(rand.Reader, pke, ptForTEE, nil, nil)
+	cipher, err := utils.Encrypt(ptForTEE, teePK)
 	if err != nil {
 		return fmt.Errorf("encrypting for TEE: %w", err)
 	}
@@ -341,7 +333,7 @@ func (b *Backup) processDirectRestore(ctx context.Context, ib *instructions.Base
 		return errors.New("direct restore is only possible to one destination")
 	}
 
-	req, err := structs.Decode[wallet.IWalletBackupManagerKeyDirectRestore](wallet.MessageArguments[op.KeyDirectRestore], ib.GeneralData.OriginalMessage)
+	req, err := wallets.ParseKeyDirectRestore(&ib.GeneralData.DataFixed)
 	if err != nil {
 		return fmt.Errorf("decoding direct restore request: %w", err)
 	}

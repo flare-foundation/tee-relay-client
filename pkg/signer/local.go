@@ -5,12 +5,10 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/tee-node/pkg/types"
+	"github.com/flare-foundation/tee-node/pkg/utils"
 )
 
 // Local is a Signer backed by an in-process ECDSA private key.
@@ -25,7 +23,7 @@ func (l *Local) Sign(_ context.Context, hashes []common.Hash) ([]hexutil.Bytes, 
 	signatures := make([]hexutil.Bytes, len(hashes))
 
 	for i, hash := range hashes {
-		sig, err := crypto.Sign(accounts.TextHash(hash.Bytes()), l.priv)
+		sig, err := utils.Sign(hash[:], l.priv)
 		if err != nil {
 			return nil, fmt.Errorf("signing hash: %w", err)
 		}
@@ -37,11 +35,7 @@ func (l *Local) Sign(_ context.Context, hashes []common.Hash) ([]hexutil.Bytes, 
 
 // Decrypt decrypts the cipher.
 func (l *Local) Decrypt(_ context.Context, cipher []byte) (hexutil.Bytes, error) {
-	privKeyDecryption, err := signer.ECDSAPrivKeyToECIES(l.priv)
-	if err != nil {
-		return nil, fmt.Errorf("converting private key to ECIES: %w", err)
-	}
-	plainText, err := privKeyDecryption.Decrypt(cipher, nil, nil)
+	plainText, err := utils.Decrypt(cipher, l.priv)
 	if err != nil {
 		return nil, fmt.Errorf("decrypting: %w", err)
 	}

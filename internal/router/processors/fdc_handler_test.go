@@ -10,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/tee-node/pkg/fdc"
 	"github.com/flare-foundation/tee-node/pkg/types"
@@ -79,7 +77,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 	cosigners := []common.Address{common.HexToAddress("0xc1"), common.HexToAddress("0xc2")}
 
 	req, ats := fdcRequest()
-	msg, err := structs.Encode(fdc2.MessageArguments[op.Prove], req)
+	msg, err := fdc.EncodeRequest(req)
 	require.NoError(t, err)
 
 	buildIB := func() *instructions.Base {
@@ -204,7 +202,7 @@ func requireErrorNamesVerifier(t *testing.T, err error, ats [64]byte) {
 func TestAttTypeAndSourceIDBase(t *testing.T) {
 	t.Parallel()
 	req, ats := fdcRequest()
-	msg, err := structs.Encode(fdc2.MessageArguments[op.Prove], req)
+	msg, err := fdc.EncodeRequest(req)
 	require.NoError(t, err)
 
 	ib := &instructions.Base{}

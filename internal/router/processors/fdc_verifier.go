@@ -13,7 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/tee-node/pkg/constraints"
 	"github.com/flare-foundation/tee-relay-client/internal/post"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
@@ -34,7 +37,7 @@ var ErrUnknownStatus = errors.New("unknown verifier status")
 // ErrEmptyResponseBody marks a VERIFIED verifier response with an empty response body.
 var ErrEmptyResponseBody = errors.New("VERIFIED verifier response with empty response body")
 
-// ErrResponseBodyTooBig marks a VERIFIED verifier response whose body exceeds maxResponseBodyLen.
+// ErrResponseBodyTooBig marks a VERIFIED verifier response whose body exceeds tee-node's op.Prove size limit.
 var ErrResponseBodyTooBig = errors.New("verifier response body exceeds the instruction size limit")
 
 // VerifierRequest is a request sent to the verifier server.
@@ -136,10 +139,6 @@ const (
 	maxStatusLen  = 64
 )
 
-// maxResponseBodyLen mirrors tee-node's op.Prove additionalFixedMessage constraint
-// (pkg/constraints); a bigger body would be signed only to be rejected by every TEE.
-const maxResponseBodyLen = 100 * 1024
-
 // validateResponse enforces the wire contract on a decoded response.
 // ResponseBody of a non-VERIFIED response and Message of a VERIFIED one are ignored, not rejected.
 func validateResponse(res VerifierResponse) (VerifierResponse, error) {
@@ -150,7 +149,9 @@ func validateResponse(res VerifierResponse) (VerifierResponse, error) {
 		if len(res.ResponseBody) == 0 {
 			return VerifierResponse{}, ErrEmptyResponseBody
 		}
-		if len(res.ResponseBody) > maxResponseBodyLen {
+		// a bigger body would be signed only to be rejected by every TEE
+		d := instruction.DataFixed{OPCommand: op.Prove.Hash(), AdditionalFixedMessage: res.ResponseBody}
+		if err := constraints.CheckSize(&d); err != nil {
 			return VerifierResponse{}, fmt.Errorf("%w: %d bytes", ErrResponseBodyTooBig, len(res.ResponseBody))
 		}
 	case StatusRetry, StatusRejected:

@@ -69,6 +69,9 @@ func TestVerifierResponseWire(t *testing.T) {
 	require.Equal(t, VerifierResponse{Status: StatusVerified, ResponseBody: hexutil.Bytes{0x01, 0x02}}, res)
 }
 
+// teeProveBodyLimit pins tee-node's op.Prove additionalFixedMessage limit; a failing boundary case means it moved.
+const teeProveBodyLimit = 100 * 1024
+
 func TestVerifierResponseStatuses(t *testing.T) {
 	t.Parallel()
 	req, _ := fdcRequest()
@@ -122,13 +125,13 @@ func TestVerifierResponseStatuses(t *testing.T) {
 		},
 		{
 			name:    "verified with oversized body",
-			body:    `{"status":"VERIFIED","responseBody":"0x` + strings.Repeat("00", maxResponseBodyLen+1) + `"}`,
+			body:    `{"status":"VERIFIED","responseBody":"0x` + strings.Repeat("00", teeProveBodyLimit+1) + `"}`,
 			wantErr: ErrResponseBodyTooBig,
 		},
 		{
 			name: "verified at the max body size boundary",
-			body: `{"status":"VERIFIED","responseBody":"0x` + strings.Repeat("00", maxResponseBodyLen) + `"}`,
-			want: VerifierResponse{Status: StatusVerified, ResponseBody: make(hexutil.Bytes, maxResponseBodyLen)},
+			body: `{"status":"VERIFIED","responseBody":"0x` + strings.Repeat("00", teeProveBodyLimit) + `"}`,
+			want: VerifierResponse{Status: StatusVerified, ResponseBody: make(hexutil.Bytes, teeProveBodyLimit)},
 		},
 		{
 			name:          "malformed response body is a decode error",
