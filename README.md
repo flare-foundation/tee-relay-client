@@ -113,26 +113,6 @@ FDC2 is only deployed alongside a home `Relay`, where `sourceChainId` is forced 
 chain_id = 14 # Flare mainnet
 ```
 
-### Relay cutover
-
-Optional. The first reward epoch whose FDC2 attestation responses are signed with the chain-bound digest — see
-[FDC2](#fdc2) for what the two digest forms are.
-
-```toml
-[relay_cutover]
-starting_reward_epoch = 5451
-```
-
-| value | effect |
-| --- | --- |
-| omitted, or `0` | every reward epoch is chain-bound |
-| `N > 0` | pre-cutover digest below `N`, chain-bound from `N` on |
-| `-1` | pre-cutover digest at every reward epoch |
-
-Omitting the block means the cutover has already happened, so a chain still awaiting it must say so with `-1` until its
-epoch is announced. Only the epoch is configured: the new `Relay`'s address is not, because the relay reads no `Relay`
-contract. The form in force is logged at startup, and `-1` is logged as a warning.
-
 ### Collector
 
 ```toml
@@ -270,14 +250,8 @@ One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector). FDC2
 
 A verifier must be configured for each supported (attestation type, source) pair. To avoid overloading servers, each verifier is backed by a queue. Multiple verifiers can share a queue when they point to the same server.
 
-The relay signs each attestation response with the `Relay` Mode-2 digest of the reward epoch the instruction carries. From the configured starting reward epoch on, that digest binds the chain id — `keccak256(chain_id ‖ 0x010000000000 ‖ messageHash)` — because the new `Relay` recovers signatures against it; before that epoch the pre-cutover form, without the chain id, is used.
-
-The boundary comes from `[relay_cutover]` (see [Relay cutover](#relay-cutover)), not from the binary.
-
-TEE machines verify this signature inside the enclave before adding their own, and they compute the chain-bound digest
-unconditionally — they carry no boundary of their own. The configured epoch is therefore only correct if it is the one
-the chain's contract batch and TEE fleet swap land in: below it the pre-cutover fleet serves the chain, at and above it
-the new one. A configured epoch that does not match the swap rejects every response on one side of it.
+The relay signs each attestation response with the `Relay` Mode-2 digest, which binds the chain id —
+`keccak256(chain_id ‖ 0x010000000000 ‖ messageHash)` — because that is what the `Relay` recovers signatures against.
 
 #### Queues
 

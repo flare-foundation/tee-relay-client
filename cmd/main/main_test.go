@@ -41,6 +41,7 @@ chain_id = 14
 		require.NoError(t, err)
 		require.Equal(t, uint64(14), cfg.ChainID)
 		require.False(t, cfg.AllowUnsafeURLs)
+		require.Nil(t, cfg.RelayCutover)
 		require.Equal(t, int64(100), cfg.Collector.StartInterval) // the default README documents
 	})
 
@@ -107,14 +108,22 @@ AllowUnsafeURLs = true
 		require.ErrorContains(t, err, "checking chain id")
 	})
 
-	t.Run("invalid relay cutover", func(t *testing.T) {
-		_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+	// the cutover is over; a leftover block loads and is only flagged for a warning
+	t.Run("retired relay cutover", func(t *testing.T) {
+		for name, block := range map[string]string{
+			"scheduled":   "[relay_cutover]\nstarting_reward_epoch = 5451\n",
+			"unscheduled": "[relay_cutover]\nstarting_reward_epoch = -1\n",
+			"empty":       "[relay_cutover]\n",
+		} {
+			t.Run(name, func(t *testing.T) {
+				cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
 chain_id = 14
-
-[relay_cutover]
-starting_reward_epoch = -2
-`))
-		require.ErrorContains(t, err, "checking relay cutover")
+`+block))
+				require.NoError(t, err)
+				require.NotNil(t, cfg.RelayCutover)
+				require.Equal(t, uint64(14), cfg.ChainID)
+			})
+		}
 	})
 
 	t.Run("ALLOW_UNSAFE_URLS override", func(t *testing.T) {
