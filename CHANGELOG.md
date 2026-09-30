@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The relay cutover is over, so every FDC2 attestation response is signed with the chain-bound digest `keccak256(chainID ‖ 0x010000000000 ‖ messageHash)` and the pre-cutover form is gone. A leftover `[relay_cutover]` block in `config.toml` is ignored with a startup warning; remove it.
+- **Breaking**: `config.RelayCutover`, `config.CutoverUnscheduled` and `(*Config).CheckRelayCutover` are removed from `pkg/config`.
+
 ## [v0.0.3](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.3) - 2026-09-17
 
 ### Changed

@@ -23,7 +23,6 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
@@ -157,7 +156,7 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	ib.GeneralData.OriginalMessage = msg
 
 	out := make(chan *instructions.Base, 1)
-	base := NewBase(chainID, config.RelayCutover{}, signer.NewLocal(relayKey))
+	base := NewBase(chainID, signer.NewLocal(relayKey))
 	base.SetOut(out)
 	require.NoError(t, NewBackup(base, true).Process(context.Background(), ib))
 
