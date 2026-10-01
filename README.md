@@ -45,6 +45,8 @@ The runtime stage is `debian:trixie`, to which the build adds the binary and CA 
 runs as uid 10001.
 
 - **Config** — mount at `/app/config.toml`. Must be readable by uid 10001, or startup panics with `permission denied`.
+- **DB TLS** — certificate and key files named in [`[db.tls]`](#tls) must be mounted and readable by uid 10001; give
+  absolute paths.
 - **Key** — `PRIVATE_KEY` is mandatory; pass it by env file or secret store, never in the image.
 - **Contract address** — `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` supplies `flare_tee_manager`, so the address can come
   from the deployment environment instead of the mounted config. Set in both places, the two must agree (see
@@ -153,6 +155,52 @@ Connection-pool limits are optional and default to whatever `database/sql` uses.
 `max_open_conns`, `max_idle_conns`, `conn_max_lifetime`, `conn_max_idle_time`. The relay queries the indexer from a single
 goroutine, so tuning them is rarely useful. Note that placing these keys directly under `[db]` instead of `[db.pool]` is
 rejected at startup as an unknown field.
+
+#### TLS
+
+The connection to the indexer is plaintext unless a nested `[db.tls]` table enables TLS. Use `verify` whenever the
+indexer is not on the same host; otherwise the instruction events the relay signs from can be read and altered in
+transit.
+
+```toml
+[db.tls]
+mode = "verify"
+ca_cert = "/etc/tee-relay/db-ca.pem"            # optional; replaces the system roots
+server_name = "indexer.example.com"             # optional; defaults to host
+client_cert = "/etc/tee-relay/db-client.pem"    # optional; mutual TLS, set with client_key
+client_key = "/etc/tee-relay/db-client-key.pem"
+```
+
+| `mode`              | effect                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| omitted, or `"off"` | plaintext                                                                                                  |
+| `"skip-verify"`     | encrypted, but the server certificate is not checked, so an active man-in-the-middle is not stopped        |
+| `"verify"`          | encrypted; certificate and hostname are checked against the system roots, or only against `ca_cert` if set |
+
+- `ca_cert`, `server_name`, `client_cert` and `client_key` require `mode = "verify"`. Setting one with another mode, an
+  unknown mode, or only one of `client_cert` and `client_key` fails startup before the relay connects.
+- There is no opportunistic mode: if the server does not offer TLS, connecting fails rather than falling back to
+  plaintext.
+- The server certificate must list `host`, a DNS name or an IP, in its SAN. Where it does not, set `server_name` to a
+  name it does list.
+- Without `ca_cert`, `verify` trusts the system CA bundle, so a certificate from a public CA works as is; a self-signed
+  or private-CA certificate needs `ca_cert`. The provided Dockerfile copies the bundle into the image.
+- The files are PEM, read once when the relay connects at startup; restart it after rotating them. Relative paths
+  resolve against the working directory, not the config file's directory.
+- `[db]`, including `[db.tls]`, is read from the config file only. `DB_*` environment variables such as `DB_TLS_MODE`
+  are ignored.
+
+Setting up `verify` for an indexer on another host:
+
+1. On the MySQL server, set `ssl_ca`, `ssl_cert` and `ssl_key` to a server certificate whose SAN lists `host`. The
+   certificates MySQL generates on first start carry no SAN, so `verify` rejects them even with their `ca.pem`; only
+   `skip-verify` connects to them.
+2. Optionally make MySQL refuse plaintext: `REQUIRE SSL` on the relay's user, or `require_secure_transport = ON` for
+   all users.
+3. On the relay, set `mode = "verify"`, plus `ca_cert` unless the server certificate is from a public CA. `ca_cert` is
+   the CA's public certificate, not a secret; the server's key stays on the database host.
+4. The relay presents no certificate of its own unless its user is created with `REQUIRE X509`; only then set
+   `client_cert` and `client_key`.
 
 ### Signer
 
@@ -331,7 +379,7 @@ Response (HTTP 200):
 
 An empty `responseBody` may also be encoded as JSON `null` or omitted entirely. Any other `status`, a `VERIFIED` response with an empty or oversized `responseBody`, or an undecodable body is a protocol error; the client treats it like `RETRY`.
 
-A non-200 status means the request was not processed. Within a single query the client retries `408`, `429`, `5xx`, and transport failures (3 attempts, 5 s apart); any other status fails the query at once, and the failed query is again retried through the queue. A non-200 response can carry a diagnostic reason in its body, but only with `Content-Type: text/plain` — bodies of any other content type are discarded. Responses are read up to 1 MiB; the client truncates `message` to 1 KiB.
+A non-200 status means the request was not processed. Within a single query the client retries `408`, `429`, `5xx`, and transport failures (3 attempts, backing off about 5 s and then 10 s, each delay jittered by ±30%); any other status fails the query at once, and the failed query is again retried through the queue. A non-200 response can carry a diagnostic reason in its body, but only with `Content-Type: text/plain` — bodies of any other content type are discarded. Responses are read up to 1 MiB; the client truncates `message` to 1 KiB.
 
 ### Logging
 
@@ -397,8 +445,8 @@ readinessProbe: { httpGet: { path: /ready,   port: 8080 }, periodSeconds: 10, fa
 
 ## Environment variables
 
-| Variable                             | Required                          | Description                                                                                                                                                             |
-| ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PRIVATE_KEY`                        | When `signer.local = true`        | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                                      |
-| `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` | When `flare_tee_manager` is unset | Address of the `FlareTeeManager` contract, `0x`-prefixed. Startup fails if the value is not an address, is zero, or contradicts `flare_tee_manager` in the config file. |
-| `ALLOW_UNSAFE_URLS`                  | No                                | Set to `true` to disable SSRF protection on backup and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled.        |
+| Variable                             | Required                          | Description                                                                                                                                                                    |
+| ------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PRIVATE_KEY`                        | When `signer.local = true`        | Private key for local signing. Name is configurable via `signer.private_key_variable`. Must be a `0x`-prefixed 32-byte hex string.                                             |
+| `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` | When `flare_tee_manager` is unset | Address of the `FlareTeeManager` contract, `0x`-prefixed. Startup fails if the value is not an address, is zero, or contradicts `flare_tee_manager` in the config file.        |
+| `ALLOW_UNSAFE_URLS`                  | No                                | Set to `true` to disable SSRF protection on backup, source-proxy and TEE sender URLs. Intended for local end-to-end testing only. A warning is logged at startup when enabled. |
