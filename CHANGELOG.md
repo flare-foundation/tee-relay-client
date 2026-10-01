@@ -2,8 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Health server, on by default on port `8080`, which the provided Dockerfile now `EXPOSE`s. `[health] port` moves it and `[health] disabled = true` turns it off; either logs a startup warning. It serves the three Kubernetes-shaped probes tee-proxy's internal port serves: `GET /healthy` (200 while the process runs), `GET /startup` (503 until the collector, router and sender are running, 200 from then on) and `GET /ready` (503 until started and while the indexer's last block, as the collector last saw it, is older than `max_indexer_lag`, default `30s`). Bodies are empty on 200 and a one-line reason on 503; probes never query the indexer database. The listener is bound before the database connect, so a busy port fails startup and the probes answer through the indexer sync wait.
+
 ### Changed
 
+- **Breaking**: the relay listens on port `8080` by default, for the health endpoints, and a busy port fails startup. Set `[health] port` or `[health] disabled = true` where `8080` is taken: another process on the host when run directly or with host networking, or another container in the same pod.
 - The relay cutover is over, so every FDC2 attestation response is signed with the chain-bound digest `keccak256(chainID ‖ 0x010000000000 ‖ messageHash)` and the pre-cutover form is gone. A leftover `[relay_cutover]` block in `config.toml` is ignored with a startup warning; remove it.
 - **Breaking**: `config.RelayCutover`, `config.CutoverUnscheduled` and `(*Config).CheckRelayCutover` are removed from `pkg/config`.
 - **Breaking**: requires Go 1.26.8, which tee-node v0.0.28 requires. The version is pinned in `go.mod`, `.gitlab-ci.yml` (golangci-lint moves to v2.14.0 to lint it), `.golangci.yml` and the `Dockerfile`, whose builder image digest moves with it.

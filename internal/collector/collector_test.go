@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/tee-relay-client/internal/collector"
+	"github.com/flare-foundation/tee-relay-client/internal/health"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -35,7 +36,11 @@ func TestCollector(t *testing.T) {
 
 	ti := common.HexToAddress("ab")
 
-	c := collector.New(db, ti, 100)
+	// started up front so Ready isolates the collector's reporting
+	status := health.NewStatus(time.Minute)
+	status.SetStarted()
+
+	c := collector.New(db, ti, 100, status)
 
 	now := uint64(time.Now().Unix())
 
@@ -78,6 +83,8 @@ func TestCollector(t *testing.T) {
 	db.Create(&requestLog1)
 	db.Create(&requestLog2)
 
+	require.ErrorIs(t, status.Ready(), health.ErrNoIndexerState)
+
 	var runWg sync.WaitGroup
 	err = c.Run(ctx, &runWg, out)
 	require.NoError(t, err)
@@ -94,6 +101,9 @@ func TestCollector(t *testing.T) {
 	})
 
 	wg.Wait()
+
+	// the batch followed the initial state fetch, which is what reports the indexer
+	require.NoError(t, status.Ready())
 
 	requestLog3 := database.Log{
 		Address:         strings.ToLower(ti.String()[2:]),

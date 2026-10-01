@@ -5,9 +5,13 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math"
+	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -27,6 +31,12 @@ const FlareTeeManagerVariable = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
 // DefaultStartInterval is the default Collector.StartInterval.
 const DefaultStartInterval int64 = 100
 
+// DefaultHealthPort is the default Health.Port; the Dockerfile EXPOSEs it.
+const DefaultHealthPort = 8080
+
+// DefaultMaxIndexerLag is the default Health.MaxIndexerLag.
+const DefaultMaxIndexerLag = 30 * time.Second
+
 var zeroAddress common.Address
 
 // Config holds the relay client configuration.
@@ -41,6 +51,8 @@ type Config struct {
 	FDC        FDC       `toml:"fdc"`
 	Collector  Collector `toml:"collector"`
 
+	Health Health `toml:"health"`
+
 	// AllowUnsafeURLs is set from the ALLOW_UNSAFE_URLS env var, never from the config file.
 	// toml:"-" is what enforces that: BurntSushi matches field names case-insensitively, so
 	// without it `AllowUnsafeURLs = true` in config.toml would disable SSRF protection.
@@ -53,6 +65,7 @@ type Config struct {
 func Default() Config {
 	return Config{
 		Collector: Collector{StartInterval: DefaultStartInterval},
+		Health:    Health{Port: DefaultHealthPort, MaxIndexerLag: DefaultMaxIndexerLag},
 	}
 }
 
@@ -64,6 +77,18 @@ type Collector struct {
 	// Signed so a negative value fails CheckStartInterval — as uint64 it would decode
 	// to 2^64-1 and silently backfill from the indexer's earliest retained block.
 	StartInterval int64 `toml:"start_interval"`
+}
+
+// Health configures the HTTP server that answers the liveness, startup and readiness
+// probes. It is on by default; only Disabled turns it off.
+type Health struct {
+	// Disabled turns the server off: nothing listens.
+	Disabled bool `toml:"disabled"`
+	// Port is the TCP port the server listens on, on all interfaces.
+	// Signed so a negative value fails CheckHealth instead of wrapping.
+	Port int `toml:"port"`
+	// MaxIndexerLag is how old the indexer's last block may be before /ready answers 503.
+	MaxIndexerLag time.Duration `toml:"max_indexer_lag"`
 }
 
 // CheckAddress returns an error if the FlareTeeManager address is unset.
@@ -141,6 +166,30 @@ func (c *Config) CheckQueues() error {
 			// retried items keep their weight: zero time_off burns all attempts instantly
 			return fmt.Errorf("queue %q: time_off must be positive when max_attempts > 1", name)
 		}
+	}
+
+	return nil
+}
+
+// Address returns the listen address of the health server, all interfaces on Port.
+func (h Health) Address() string {
+	return net.JoinHostPort("", strconv.Itoa(h.Port))
+}
+
+// CheckHealth returns an error if the health server is enabled with a port outside
+// 1-65535 or a non-positive MaxIndexerLag. A disabled server is not checked.
+func (c *Config) CheckHealth() error {
+	h := c.Health
+	if h.Disabled {
+		return nil
+	}
+
+	// 0 binds an ephemeral port nothing could be told to probe
+	if h.Port < 1 || h.Port > math.MaxUint16 {
+		return fmt.Errorf("health port must be in 1-65535, got %d", h.Port)
+	}
+	if h.MaxIndexerLag <= 0 {
+		return fmt.Errorf("health max_indexer_lag must be positive, got %s", h.MaxIndexerLag)
 	}
 
 	return nil

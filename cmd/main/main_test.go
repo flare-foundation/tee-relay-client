@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -126,6 +127,53 @@ chain_id = 14
 		}
 	})
 
+	t.Run("health custom", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[health]
+port = 9090
+max_indexer_lag = "45s"
+`))
+		require.NoError(t, err)
+		require.False(t, cfg.Health.Disabled)
+		require.Equal(t, 9090, cfg.Health.Port)
+		require.Equal(t, 45*time.Second, cfg.Health.MaxIndexerLag)
+	})
+
+	// omitted section: the server is on, on the port the image EXPOSEs
+	t.Run("health omitted", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+`))
+		require.NoError(t, err)
+		require.False(t, cfg.Health.Disabled)
+		require.Equal(t, config.DefaultHealthPort, cfg.Health.Port)
+		require.Equal(t, config.DefaultMaxIndexerLag, cfg.Health.MaxIndexerLag)
+	})
+
+	t.Run("health disabled", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[health]
+disabled = true
+`))
+		require.NoError(t, err)
+		require.True(t, cfg.Health.Disabled)
+	})
+
+	t.Run("health port out of range", func(t *testing.T) {
+		for _, port := range []string{"0", "-1", "65536"} {
+			t.Run(port, func(t *testing.T) {
+				_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[health]
+port = `+port+`
+`))
+				require.ErrorContains(t, err, "checking health")
+			})
+		}
+	})
+
 	t.Run("ALLOW_UNSAFE_URLS override", func(t *testing.T) {
 		t.Setenv("ALLOW_UNSAFE_URLS", "true")
 		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
@@ -167,4 +215,32 @@ chain_id = 14
 `))
 		require.ErrorContains(t, err, "reading manager address from env")
 	})
+}
+
+func TestHealthWarning(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		health config.Health
+		want   string // substring; empty means no warning
+	}{
+		{name: "default", health: config.Health{Port: config.DefaultHealthPort}},
+		{name: "disabled", health: config.Health{Disabled: true, Port: config.DefaultHealthPort}, want: "disabled"},
+		{name: "disabled wins over port", health: config.Health{Disabled: true, Port: 9090}, want: "disabled"},
+		{name: "custom port", health: config.Health{Port: 9090}, want: "health port 9090 is not the default 8080"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := healthWarning(tc.health)
+			if tc.want == "" {
+				require.Empty(t, got)
+				return
+			}
+			require.Contains(t, got, tc.want)
+		})
+	}
 }

@@ -11,6 +11,7 @@ import (
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/tee-relay-client/internal/health"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -39,12 +40,14 @@ type Collector struct {
 	DB              *gorm.DB // c-chain indexer db
 	flareTeeManager common.Address
 	startInterval   int64
+	status          *health.Status // nil: no health server
 }
 
 // New creates a new Collector that connects to database.
 // startInterval is how many blocks below the indexer's last block the initial scan starts.
-func New(db *gorm.DB, flareTeeManager common.Address, startInterval int64) *Collector {
-	collector := Collector{DB: db, flareTeeManager: flareTeeManager, startInterval: startInterval}
+// Every indexer state the collector fetches is reported to status; nil disables reporting.
+func New(db *gorm.DB, flareTeeManager common.Address, startInterval int64, status *health.Status) *Collector {
+	collector := Collector{DB: db, flareTeeManager: flareTeeManager, startInterval: startInterval, status: status}
 
 	return &collector
 }
@@ -65,7 +68,7 @@ func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []da
 	}
 
 	wg.Add(1)
-	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, c.startInterval, requestInterval, out)
+	go instructionsListener(ctx, wg, c.DB, c.flareTeeManager, c.startInterval, requestInterval, c.status, out)
 
 	return nil
 }
@@ -90,6 +93,7 @@ func instructionsListener(
 	flareTeeManager common.Address,
 	startInterval int64,
 	listenerInterval time.Duration,
+	status *health.Status,
 	out chan<- []database.Log,
 ) {
 	defer wg.Done()
@@ -106,6 +110,7 @@ func instructionsListener(
 		}
 		logger.Panicf("fetching initial state: %v", err)
 	}
+	reportState(status, state)
 
 	params := database.LogsParams{
 		Address: flareTeeManager,
@@ -133,6 +138,7 @@ func instructionsListener(
 			continue
 		}
 		stateDamper.ok()
+		reportState(status, state)
 
 		params.To = int64(state.Index)
 
@@ -159,4 +165,10 @@ func instructionsListener(
 			}
 		}
 	}
+}
+
+// reportState forwards the indexer's last block to the health status; failures report
+// nothing, so the block's age keeps growing until the indexer is seen again.
+func reportState(status *health.Status, state database.State) {
+	status.SetIndexer(state.Index, time.Unix(int64(state.BlockTimestamp), 0))
 }

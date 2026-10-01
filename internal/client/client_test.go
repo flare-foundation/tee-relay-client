@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/tee-relay-client/internal/health"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
@@ -67,7 +68,7 @@ func TestNewWithDB(t *testing.T) {
 			FlareTeeManager: manager,
 			Signer:          config.Signer{Local: true, PrivateKeyVariable: "PRIVATE_KEY"},
 		}
-		c, err := newWithDB(cfg, memDB(t))
+		c, err := newWithDB(cfg, memDB(t), nil)
 		require.NoError(t, err)
 		require.NotNil(t, c)
 	})
@@ -80,14 +81,14 @@ func TestNewWithDB(t *testing.T) {
 			IsCosigner:      true,
 			Signer:          config.Signer{Local: true, PrivateKeyVariable: "PRIVATE_KEY"},
 		}
-		c, err := newWithDB(cfg, memDB(t))
+		c, err := newWithDB(cfg, memDB(t), nil)
 		require.NoError(t, err)
 		require.NotNil(t, c)
 	})
 
 	t.Run("signer misconfiguration surfaces", func(t *testing.T) {
 		cfg := config.Config{ChainID: 14, FlareTeeManager: manager} // remote signer, empty URL
-		_, err := newWithDB(cfg, memDB(t))
+		_, err := newWithDB(cfg, memDB(t), nil)
 		require.ErrorContains(t, err, "could not set signer")
 	})
 }
@@ -116,7 +117,7 @@ func TestRunWaitReturnsAfterCancel(t *testing.T) {
 		FlareTeeManager: common.HexToAddress("0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"),
 		Signer:          config.Signer{Local: true, PrivateKeyVariable: "PRIVATE_KEY"},
 	}
-	cl, err := newWithDB(cfg, db)
+	cl, err := newWithDB(cfg, db, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -137,4 +138,42 @@ func TestRunWaitReturnsAfterCancel(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Wait did not return within 5s after cancel")
 	}
+}
+
+// TestRunReportsHealth pins the probe transitions to the pipeline: startup latches when Run
+// returns, readiness follows the collector's first poll.
+func TestRunReportsHealth(t *testing.T) {
+	t.Setenv("PRIVATE_KEY", testKeyHex(t))
+
+	db, err := gorm.Open(sqlite.Open("file:clienthealth?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&database.State{}))
+	require.NoError(t, db.AutoMigrate(&database.Log{}))
+
+	db.Create(&database.State{
+		Name:           "last_database_block",
+		Index:          12,
+		BlockTimestamp: uint64(time.Now().Unix()),
+		Updated:        time.Now(),
+	})
+
+	cfg := config.Config{
+		ChainID:         14,
+		FlareTeeManager: common.HexToAddress("0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"),
+		Signer:          config.Signer{Local: true, PrivateKeyVariable: "PRIVATE_KEY"},
+	}
+	status := health.NewStatus(30 * time.Second)
+	cl, err := newWithDB(cfg, db, status)
+	require.NoError(t, err)
+
+	require.ErrorIs(t, status.Startup(), health.ErrStartupNotFinished)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	require.NoError(t, cl.Run(ctx))
+
+	require.NoError(t, status.Startup())
+	require.Eventually(t, func() bool { return status.Ready() == nil }, 5*time.Second, 10*time.Millisecond)
+
+	cancel()
+	cl.Wait()
 }

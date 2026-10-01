@@ -9,6 +9,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/internal/collector"
+	"github.com/flare-foundation/tee-relay-client/internal/health"
 	"github.com/flare-foundation/tee-relay-client/internal/router"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
@@ -22,23 +23,25 @@ import (
 type Client struct {
 	collector       *collector.Collector
 	router          *router.Router
+	status          *health.Status // nil: no health server
 	allowUnsafeURLs bool
 	wg              sync.WaitGroup
 }
 
-// New creates new Client from configs.
-func New(cfg config.Config) (*Client, error) {
+// New creates new Client from configs. The pipeline reports its startup and the indexer
+// state it sees to status; nil disables reporting.
+func New(cfg config.Config, status *health.Status) (*Client, error) {
 	db, err := database.Connect(&cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
 	logger.Infof("connected to indexer database")
 
-	return newWithDB(cfg, db)
+	return newWithDB(cfg, db, status)
 }
 
 // newWithDB assembles the Client around an already-open database handle.
-func newWithDB(cfg config.Config, db *gorm.DB) (*Client, error) {
+func newWithDB(cfg config.Config, db *gorm.DB, status *health.Status) (*Client, error) {
 	sgnr, err := setSigner(&cfg.Signer)
 	if err != nil {
 		return nil, fmt.Errorf("could not set signer: %w", err)
@@ -55,7 +58,7 @@ func newWithDB(cfg config.Config, db *gorm.DB) (*Client, error) {
 		logger.Infof("running as data provider")
 	}
 
-	c := collector.New(db, cfg.FlareTeeManager, cfg.Collector.StartInterval)
+	c := collector.New(db, cfg.FlareTeeManager, cfg.Collector.StartInterval, status)
 	r, err := router.NewRouter(sgnr, cfg.ChainID, &cfg.FDC, filterer, cfg.AllowUnsafeURLs)
 	if err != nil {
 		return nil, fmt.Errorf("could not create router: %w", err)
@@ -64,6 +67,7 @@ func newWithDB(cfg config.Config, db *gorm.DB) (*Client, error) {
 	return &Client{
 		collector:       c,
 		router:          r,
+		status:          status,
 		allowUnsafeURLs: cfg.AllowUnsafeURLs,
 	}, nil
 }
@@ -81,6 +85,7 @@ func (c *Client) Run(ctx context.Context) error {
 	c.router.Run(ctx, &c.wg, cToR, rToS)
 	sender.Run(ctx, &c.wg, rToS, c.allowUnsafeURLs)
 
+	c.status.SetStarted()
 	logger.Infof("relay pipeline started")
 
 	return nil

@@ -35,6 +35,13 @@ max_age_days = 30  # days rotated files are kept
 console = true
 
 
+# Health endpoints are on by default, on port 8080, which the provided Dockerfile EXPOSEs. See README → Health endpoints.
+# [health]
+# disabled = false           # true turns them off and opens no port; logs a warning
+# port = 8080                # all interfaces; a non-default port logs a warning, probes and port mappings must follow it
+# max_indexer_lag = "30s"    # /ready answers 503 once the indexer's last block is older than this; default 30s
+
+
 # credentials for signer
 [signer]
 local = true # external signer (local = false) is not implemented yet
