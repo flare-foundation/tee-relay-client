@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
 	"github.com/flare-foundation/tee-relay-client/internal/client"
+	"github.com/flare-foundation/tee-relay-client/internal/health"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
@@ -18,6 +20,9 @@ const allowUnsafeURLsEnv = "ALLOW_UNSAFE_URLS"
 const (
 	configPath string = "config.toml" // relative to project root
 )
+
+// healthShutdownTimeout bounds the wait for in-flight probes at shutdown.
+const healthShutdownTimeout = 2 * time.Second
 
 // fileConfig accepts the retired [relay_cutover] block so older configs still load.
 type fileConfig struct {
@@ -61,6 +66,19 @@ func loadConfig(path string) (fileConfig, error) {
 	return cfg, nil
 }
 
+// healthWarning returns the startup warning for a [health] section that disables the server
+// or moves it off the default port, or "" when there is none.
+func healthWarning(h config.Health) string {
+	if h.Disabled {
+		return "health endpoints disabled by [health] disabled = true: health probes get connection refused"
+	}
+	if h.Port != config.DefaultHealthPort {
+		return fmt.Sprintf("health port %d is not the default %d, which the provided Dockerfile EXPOSEs: probes and port mappings must use %d", h.Port, config.DefaultHealthPort, h.Port)
+	}
+
+	return ""
+}
+
 func main() {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
@@ -82,8 +100,25 @@ func main() {
 	if cfg.RelayCutover != nil {
 		logger.Warnf("ignoring the retired [relay_cutover] block in %s: FDC2 responses are always signed with the chain-bound digest; remove it", configPath)
 	}
+	if w := healthWarning(cfg.Health); w != "" {
+		logger.Warn(w)
+	}
 
-	cl, err := client.New(cfg.Config)
+	// Bound before the client so the probes answer through the DB connect and the indexer
+	// sync wait; a busy port fails startup here instead of after them.
+	var status *health.Status
+	var hs *health.Server
+	if !cfg.Health.Disabled {
+		status = health.NewStatus(cfg.Health.MaxIndexerLag)
+		hs, err = health.Listen(cfg.Health.Address(), status)
+		if err != nil {
+			logger.Panicf("starting health server: %v", err)
+		}
+		hs.Start()
+		logger.Infof("health endpoints listening on %s", hs.Addr())
+	}
+
+	cl, err := client.New(cfg.Config, status)
 	if err != nil {
 		logger.Panicf("creating client: %v", err)
 	}
@@ -97,6 +132,15 @@ func main() {
 	logger.Infof("received %v signal, shutting down", sig)
 
 	cancel()
+
+	// Probes are refused while the pipeline drains — accurate, and nothing is being routed.
+	if hs != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), healthShutdownTimeout)
+		if err := hs.Close(shutdownCtx); err != nil {
+			logger.Warnf("closing health server: %v", err)
+		}
+		shutdownCancel()
+	}
 
 	// Wait for the pipeline goroutines to log their "closing" lines, then flush the file core.
 	cl.Wait()

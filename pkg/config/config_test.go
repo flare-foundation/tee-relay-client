@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/hex"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +33,22 @@ func TestConfig(t *testing.T) {
 	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
 	require.False(t, cfg.Health.Disabled, "example must keep the health server on — probes need it")
 	require.Equal(t, DefaultHealthPort, cfg.Health.Port, "example must keep the port the image EXPOSEs")
+}
+
+// Probes reach a relay without a [health] section only if the image EXPOSEs the default port.
+func TestDockerfileExposesHealthPort(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../Dockerfile")
+	require.NoError(t, err)
+
+	var exposed []string
+	for line := range strings.Lines(string(b)) {
+		if f := strings.Fields(line); len(f) > 1 && strings.EqualFold(f[0], "EXPOSE") {
+			exposed = append(exposed, f[1:]...)
+		}
+	}
+	require.Contains(t, exposed, strconv.Itoa(DefaultHealthPort))
 }
 
 func TestCheckHealth(t *testing.T) {

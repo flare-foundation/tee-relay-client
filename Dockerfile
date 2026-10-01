@@ -20,4 +20,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 USER 10001
 
+# health probes; must match config.DefaultHealthPort
+EXPOSE 8080
+
 CMD ["./tee-relay-client"]

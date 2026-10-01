@@ -216,3 +216,31 @@ chain_id = 14
 		require.ErrorContains(t, err, "reading manager address from env")
 	})
 }
+
+func TestHealthWarning(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		health config.Health
+		want   string // substring; empty means no warning
+	}{
+		{name: "default", health: config.Health{Port: config.DefaultHealthPort}},
+		{name: "disabled", health: config.Health{Disabled: true, Port: config.DefaultHealthPort}, want: "disabled"},
+		{name: "disabled wins over port", health: config.Health{Disabled: true, Port: 9090}, want: "disabled"},
+		{name: "custom port", health: config.Health{Port: 9090}, want: "health port 9090 is not the default 8080"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := healthWarning(tc.health)
+			if tc.want == "" {
+				require.Empty(t, got)
+				return
+			}
+			require.Contains(t, got, tc.want)
+		})
+	}
+}
