@@ -3,7 +3,6 @@ package processors
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/rand"
 	"encoding/json"
 	"math/big"
 	"net/http"
@@ -13,9 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	csigner "github.com/flare-foundation/go-flare-common/pkg/tee/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-node/pkg/types"
@@ -43,9 +40,7 @@ func pubKey64(key *ecdsa.PrivateKey) []byte {
 
 func eciesEncrypt(t *testing.T, key *ecdsa.PrivateKey, msg []byte) []byte {
 	t.Helper()
-	pub, err := csigner.ECDSAPubKeyToECIES(&key.PublicKey)
-	require.NoError(t, err)
-	cipher, err := ecies.Encrypt(rand.Reader, pub, msg, nil, nil)
+	cipher, err := utils.Encrypt(msg, &key.PublicKey)
 	require.NoError(t, err)
 	return cipher
 }
@@ -169,9 +164,7 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 
 	// Decrypt the TEE-bound output with the destination key: it must be the
 	// relay's provider key split, re-encrypted by the relay.
-	destECIES, err := csigner.ECDSAPrivKeyToECIES(destKey)
-	require.NoError(t, err)
-	forTEE, err := destECIES.Decrypt(got.GeneralData.AdditionalVariableMessage, nil, nil)
+	forTEE, err := utils.Decrypt(got.GeneralData.AdditionalVariableMessage, destKey)
 	require.NoError(t, err)
 	var roundTripped backup.KeySplit
 	require.NoError(t, json.Unmarshal(forTEE, &roundTripped))

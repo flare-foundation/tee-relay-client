@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/tee-node/pkg/fdc"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
@@ -102,7 +101,7 @@ func proveInstruction(t *testing.T, attType, sourceID string) *instructions.Base
 		},
 		RequestBody: []byte("request-body"),
 	}
-	msg, err := structs.Encode(fdc2.MessageArguments[op.Prove], req)
+	msg, err := fdc.EncodeRequest(req)
 	require.NoError(t, err)
 
 	ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: [32]byte{0x01}}}
