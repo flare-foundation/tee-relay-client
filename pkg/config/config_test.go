@@ -28,7 +28,58 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, cfg.CheckChainID())
 	require.NoError(t, cfg.CheckStartInterval())
 	require.NoError(t, cfg.CheckQueues())
+	require.NoError(t, cfg.CheckHealth())
 	require.True(t, cfg.Signer.Local, "example must select the local signer — the external one is not implemented")
+	require.False(t, cfg.Health.Disabled, "example must keep the health server on — probes need it")
+	require.Equal(t, DefaultHealthPort, cfg.Health.Port, "example must keep the port the image EXPOSEs")
+}
+
+func TestCheckHealth(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		health  Health
+		wantErr string
+	}{
+		{name: "default port", health: Health{Port: DefaultHealthPort, MaxIndexerLag: DefaultMaxIndexerLag}},
+		{name: "custom port", health: Health{Port: 9090, MaxIndexerLag: DefaultMaxIndexerLag}},
+		{name: "highest port", health: Health{Port: 65535, MaxIndexerLag: DefaultMaxIndexerLag}},
+		{name: "disabled", health: Health{Disabled: true}},
+		// port and lag are inert while disabled, so bad ones must not fail a port-less deployment
+		{name: "disabled ignores port and lag", health: Health{Disabled: true, Port: -1, MaxIndexerLag: -time.Second}},
+		{name: "zero port", health: Health{MaxIndexerLag: DefaultMaxIndexerLag}, wantErr: "health port"},
+		{name: "negative port", health: Health{Port: -1, MaxIndexerLag: DefaultMaxIndexerLag}, wantErr: "health port"},
+		{name: "port above range", health: Health{Port: 65536, MaxIndexerLag: DefaultMaxIndexerLag}, wantErr: "health port"},
+		{name: "zero lag", health: Health{Port: DefaultHealthPort}, wantErr: "max_indexer_lag"},
+		{name: "negative lag", health: Health{Port: DefaultHealthPort, MaxIndexerLag: -time.Second}, wantErr: "max_indexer_lag"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := Config{Health: tc.health}
+
+			err := cfg.CheckHealth()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// The defaults must pass CheckHealth, or a config without [health] fails to load.
+func TestDefaultHealth(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	require.False(t, cfg.Health.Disabled)
+	require.Equal(t, DefaultHealthPort, cfg.Health.Port)
+	require.Equal(t, DefaultMaxIndexerLag, cfg.Health.MaxIndexerLag)
+	require.Equal(t, ":8080", cfg.Health.Address())
+	require.NoError(t, cfg.CheckHealth())
 }
 
 func TestCheckQueues(t *testing.T) {

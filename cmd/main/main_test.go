@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -122,6 +123,53 @@ chain_id = 14
 				require.NoError(t, err)
 				require.NotNil(t, cfg.RelayCutover)
 				require.Equal(t, uint64(14), cfg.ChainID)
+			})
+		}
+	})
+
+	t.Run("health custom", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[health]
+port = 9090
+max_indexer_lag = "45s"
+`))
+		require.NoError(t, err)
+		require.False(t, cfg.Health.Disabled)
+		require.Equal(t, 9090, cfg.Health.Port)
+		require.Equal(t, 45*time.Second, cfg.Health.MaxIndexerLag)
+	})
+
+	// omitted section: the server is on, on the port the image EXPOSEs
+	t.Run("health omitted", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+`))
+		require.NoError(t, err)
+		require.False(t, cfg.Health.Disabled)
+		require.Equal(t, config.DefaultHealthPort, cfg.Health.Port)
+		require.Equal(t, config.DefaultMaxIndexerLag, cfg.Health.MaxIndexerLag)
+	})
+
+	t.Run("health disabled", func(t *testing.T) {
+		cfg, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[health]
+disabled = true
+`))
+		require.NoError(t, err)
+		require.True(t, cfg.Health.Disabled)
+	})
+
+	t.Run("health port out of range", func(t *testing.T) {
+		for _, port := range []string{"0", "-1", "65536"} {
+			t.Run(port, func(t *testing.T) {
+				_, err := loadConfig(writeConfig(t, `flare_tee_manager = "`+validManager+`"
+chain_id = 14
+[health]
+port = `+port+`
+`))
+				require.ErrorContains(t, err, "checking health")
 			})
 		}
 	})

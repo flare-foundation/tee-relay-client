@@ -50,6 +50,9 @@ func loadConfig(path string) (fileConfig, error) {
 	if err := cfg.CheckQueues(); err != nil {
 		return cfg, fmt.Errorf("checking fdc queues: %w", err)
 	}
+	if err := cfg.CheckHealth(); err != nil {
+		return cfg, fmt.Errorf("checking health: %w", err)
+	}
 
 	if v, ok := os.LookupEnv(allowUnsafeURLsEnv); ok && v == "true" {
 		cfg.AllowUnsafeURLs = true
