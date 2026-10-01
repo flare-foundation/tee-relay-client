@@ -39,11 +39,12 @@ include:
   - component: gitlab.com/flarenetwork/ci-components-private/lint-go@2
     inputs:
       go_version: "${GO_VERSION}"
-      golangci_version: "v2.13.2"
+      golangci_version: "v2.14.0"
       golangci_config_file: ".golangci.yml"
   - component: gitlab.com/flarenetwork/ci-components-private/test-go@2
     inputs:
       go_version: "${GO_VERSION}"
-      go_test_command: "go test -v -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... ./..."
+      cobertura_go_version: "${GO_VERSION}"
+      go_test_command: "go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=github.com/flare-foundation/tee-relay-client/... ./..."
       tags: ["flarenetwork-lg"]
   - component: gitlab.com/flarenetwork/ci-components-private/test-docker-build@2
