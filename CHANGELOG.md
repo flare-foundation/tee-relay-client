@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v0.0.4](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.4) - 2026-10-01
 
 ### Added
 
@@ -13,8 +13,9 @@
 - **Breaking**: `config.RelayCutover`, `config.CutoverUnscheduled` and `(*Config).CheckRelayCutover` are removed from `pkg/config`.
 - **Breaking**: requires Go 1.26.8, which tee-node v0.0.28 requires. The version is pinned in `go.mod`, `.gitlab-ci.yml` (golangci-lint moves to v2.14.0 to lint it), `.golangci.yml` and the `Dockerfile`, whose builder image digest moves with it.
 - `go-flare-common` bumped to v1.3.0 and `tee-node` to v0.0.28; go-ethereum follows to v1.17.6.
-- The SSRF guard (`allow_unsafe_urls = false`) is stricter: backup URLs, source-proxy URLs and TEE machine URLs that resolve to IPv6 outside global unicast `2000::/3`, or to Teredo, 6to4, ORCHID, benchmarking or documentation ranges, or to IPv4 `192.88.99.0/24`, are now refused.
+- The SSRF guard (on unless `ALLOW_UNSAFE_URLS=true`) is stricter: backup URLs, source-proxy URLs and TEE machine URLs that resolve to IPv6 outside global unicast `2000::/3`, or to Teredo, 6to4, ORCHID, benchmarking or documentation ranges, or to IPv4 `192.88.99.0/24`, are now refused.
 - Restore-request decoding, the ECIES re-encryption for the destination TEE, the local signer's signing and decryption, and the FDC2 response-body size limit now call tee-node's own helpers instead of local copies, so they cannot drift from what the TEE does. Behavior is unchanged.
+- TLS for the indexer connection is now documented (README → C-chain indexer database → TLS) and sketched in `config.toml.example`. The `[db.tls]` table has been accepted since v0.0.3; omitting it keeps the connection plaintext.
 
 ## [v0.0.3](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.3) - 2026-09-17
 

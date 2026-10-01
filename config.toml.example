@@ -25,6 +25,14 @@ log_queries = false
 # conn_max_lifetime = "1h"
 # conn_max_idle_time = "10m"
 
+# optional TLS; omitted = plaintext. Use "verify" when the indexer is on another host
+# [db.tls]
+# mode = "verify"                                  # off | skip-verify | verify
+# ca_cert = "/etc/tee-relay/db-ca.pem"             # replaces the system roots; verify only
+# server_name = "indexer.example.com"              # defaults to host; verify only
+# client_cert = "/etc/tee-relay/db-client.pem"     # mutual TLS, set with client_key; verify only
+# client_key = "/etc/tee-relay/db-client-key.pem"
+
 
 [logger]
 level = "INFO"     # INFO shows startup/wiring, lifecycle, and failures; per-instruction tracing requires "DEBUG"
