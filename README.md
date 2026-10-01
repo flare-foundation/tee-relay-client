@@ -35,6 +35,7 @@ No image is published. Build with the provided `Dockerfile`, which can be used a
 ```shell
 docker build -t tee-relay .
 docker run -d --name tee-relay \
+  -p 127.0.0.1:8080:8080 \
   -v /etc/tee-relay/config.toml:/app/config.toml:ro \
   --env-file /etc/tee-relay/relay.env \
   tee-relay
@@ -50,7 +51,9 @@ runs as uid 10001.
   [FlareTeeManager address](#flareteemanager-address)).
 - **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
   `console = true` and read `docker logs`.
-- **Ports** — none, and no health endpoint; liveness comes from the logs.
+- **Ports** — `8080`, which the image `EXPOSE`s, serves the [health endpoints](#health-endpoints). `EXPOSE` publishes
+  nothing: map it with `-p` to reach it from the host. The image has no `curl`, so a Docker `HEALTHCHECK` cannot call
+  the endpoints; use the orchestrator's HTTP probes.
 - **Stopping** — `SIGTERM` is handled, but in-flight instructions are not drained, and there is no durable cursor. They
   are re-collected after restart only if `[collector] start_interval` is greater than zero and the instruction's block
   is still inside that window (see [Collector](#collector)); queued FDC work is lost. To recover reliably, restart
@@ -341,6 +344,56 @@ max_file_size = 10   # max log file size in MB before rotation
 max_backups = 10     # number of rotated files to keep
 max_age_days = 30    # days to keep rotated files
 ```
+
+### Health endpoints
+
+On by default: the relay serves the three Kubernetes-shaped probes on port `8080`, on all interfaces — the same names
+and codes as tee-proxy's internal port. `8080` is the port the provided Dockerfile `EXPOSE`s.
+
+```toml
+[health]
+disabled = false           # default; true turns the endpoints off and opens no port
+port = 8080                # default
+max_indexer_lag = "30s"    # default; /ready answers 503 once the indexer's last block is older than this
+```
+
+| endpoint | question | `200` | `503` |
+| --- | --- | --- | --- |
+| `GET /healthy` | is the process up | always, once the listener is bound | never |
+| `GET /startup` | has the pipeline started | once the collector, router and sender are running; stays `200` | during the database connect and the indexer sync wait |
+| `GET /ready` | can it process instructions now | started, indexer state observed, and the indexer's last block at most `max_indexer_lag` old | not started, nothing observed yet, or the block is stale |
+
+Bodies are empty on `200`; a `503` carries a one-line reason, for example
+`indexer block too old: block 12345678 is 1m35s old, max 30s`. The readiness signal is the indexer state the collector
+already fetches every 2 s, so probes never query the database. One rule covers three faults, because all of them stop
+the observed block timestamp from advancing: a stalled indexer, an unreachable indexer database, and a dead collector
+loop. The lag is the age of the last _block's_ timestamp — the same measure startup uses — so a halted chain reads as
+not ready with a perfectly healthy indexer.
+
+```yaml
+# 60 min of sync wait before a restart; the relay itself gives up after ~5 h worst case
+startupProbe:   { httpGet: { path: /startup, port: 8080 }, periodSeconds: 30, failureThreshold: 120 }
+livenessProbe:  { httpGet: { path: /healthy, port: 8080 }, periodSeconds: 10, failureThreshold: 3 }
+readinessProbe: { httpGet: { path: /ready,   port: 8080 }, periodSeconds: 10, failureThreshold: 3 }
+```
+
+- Point `livenessProbe` at `/healthy`, never at `/ready`: `/ready` is `503` for the whole sync wait, and a liveness
+  probe there restarts the pod mid-sync in a loop.
+- The `startupProbe` budget is the sync wait the deployment tolerates. The relay's own ceiling is long — the sync wait
+  retries 30 times with sleeps of up to 10 minutes, so an indexer an hour behind is waited on for about 90 minutes
+  before the process exits — and a shorter budget does not fail the relay, it restarts it in a loop, each restart
+  beginning the wait from zero.
+- `disabled = true` logs a warning at startup. Nothing listens, so a probe gets connection refused rather than a status
+  code, and probes configured against a disabled relay fail liveness from the first check. Configure both or neither.
+- A `port` other than the default `8080` logs a warning at startup. The provided Dockerfile `EXPOSE`s `8080`, so
+  probes and port mappings must use the configured port.
+- `port` and `max_indexer_lag` have no effect while disabled.
+- A busy port fails startup — when another process on the host holds `8080` (run directly or with host networking), or
+  another container in the same pod does, move it with `port` or set `disabled = true`. A port outside 1–65535 is rejected when the config is read.
+- No authentication and no TLS: the port must not be reachable from outside the pod/host. The only data exposed is an
+  indexer block height. Run outside a container, the relay listens on all of the host's interfaces, so firewall it.
+- The runtime image has no `curl`, so a Docker `HEALTHCHECK` or compose `healthcheck` cannot call the endpoints from
+  inside the container.
 
 ## Environment variables
 
