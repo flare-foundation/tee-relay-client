@@ -1,3 +1,4 @@
+#checkov:skip=CKV_DOCKER_2:no curl in the image, probes are orchestrator httpGet on [health]
 FROM golang:1.26.8-trixie@sha256:eae2aaa6add2936cbf350dd0d2628b363461542f0c4b3c0b558957e0f2997379 AS builder
 
 WORKDIR /app
