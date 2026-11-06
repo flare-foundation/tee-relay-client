@@ -36,11 +36,7 @@ log_queries = false
 
 [logger]
 level = "INFO"     # INFO shows startup/wiring, lifecycle, and failures; per-instruction tracing requires "DEBUG"
-file = ""          # log file path; empty = no file. With console = false this discards ALL logs
-max_file_size = 10 # MB per rotated file
-max_backups = 10   # rotated files kept
-max_age_days = 30  # days rotated files are kept
-console = true
+format = "console" # "console" or "json"; logs go to stdout only
 
 
 # Health endpoints are on by default, on port 8080, which the provided Dockerfile EXPOSEs. See README → Health endpoints.

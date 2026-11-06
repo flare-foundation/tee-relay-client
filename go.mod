@@ -1,13 +1,12 @@
 module github.com/flare-foundation/tee-relay-client
 
-go 1.26.10
+go 1.27.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.6
-	github.com/flare-foundation/go-flare-common v1.3.0
+	github.com/flare-foundation/go-flare-common v1.5.0
 	github.com/flare-foundation/tee-node v0.0.28
 	github.com/stretchr/testify v1.12.1
-	go.uber.org/zap v1.27.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
 )
@@ -47,7 +46,6 @@ require (
 	go.opentelemetry.io/otel v1.46.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
@@ -55,6 +53,5 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
 )

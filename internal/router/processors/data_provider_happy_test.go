@@ -73,11 +73,9 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	// Provider split owned by the relay, signed by the wallet key, ECIES-encrypted
 	// to the relay.
 	ksd := backup.KeySplitData{
-		Shares: []backup.ShamirShare{{X: 1, Y: []byte{2}}},
-		PartialWalletBackupID: backup.PartialWalletBackupID{
-			WalletBackupID: id,
-			IsAdmin:        false,
-		},
+		Shares:         []backup.ShamirShare{{X: 1, Y: []byte{2}}},
+		WalletBackupID: id,
+		IsAdmin:        false,
 		OwnerPublicKey: types.PubKeyToStruct(&relayKey.PublicKey),
 	}
 	splitSignHash, err := ksd.SignHash(chainID)
@@ -100,12 +98,10 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	}
 
 	wb := backup.WalletBackup{
-		WalletBackupMetaData: backup.WalletBackupMetaData{
-			WalletBackupID:     id,
-			AdminsPublicKeys:   []types.PublicKey{types.PubKeyToStruct(&adminKey.PublicKey)},
-			AdminsThreshold:    1,
-			ProvidersThreshold: 1,
-		},
+		WalletBackupID:         id,
+		AdminsPublicKeys:       []types.PublicKey{types.PubKeyToStruct(&adminKey.PublicKey)},
+		AdminsThreshold:        1,
+		ProvidersThreshold:     1,
 		AdminEncryptedParts:    admin,
 		ProviderEncryptedParts: provider,
 	}

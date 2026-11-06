@@ -18,18 +18,16 @@ func TestInstructionOPLogging(t *testing.T) {
 	teeID := common.BytesToAddress([]byte("myAddress"))
 
 	data := instruction.Data{
-		DataFixed: instruction.DataFixed{
-			InstructionID:          iId,
-			TeeID:                  teeID,
-			Timestamp:              0,
-			RewardEpochID:          0,
-			OPType:                 op.XRP.Hash(),
-			OPCommand:              op.Pay.Hash(),
-			Cosigners:              []common.Address{},
-			CosignersThreshold:     0,
-			OriginalMessage:        hexutil.Bytes{},
-			AdditionalFixedMessage: hexutil.Bytes{},
-		},
+		InstructionID:             iId,
+		TeeID:                     teeID,
+		Timestamp:                 0,
+		RewardEpochID:             0,
+		OPType:                    op.XRP.Hash(),
+		OPCommand:                 op.Pay.Hash(),
+		Cosigners:                 []common.Address{},
+		CosignersThreshold:        0,
+		OriginalMessage:           hexutil.Bytes{},
+		AdditionalFixedMessage:    hexutil.Bytes{},
 		AdditionalVariableMessage: hexutil.Bytes{},
 	}
 

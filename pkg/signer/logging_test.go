@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
-// *zap.SugaredLogger is the concrete logger the client injects; it must satisfy Logger.
-var _ Logger = &zap.SugaredLogger{}
+// *logger.Log is the concrete logger the client injects; it must satisfy Logger.
+var _ Logger = &logger.Log{}
 
 // recordingLogger captures rendered messages logged through the Logger interface.
 type recordingLogger struct {

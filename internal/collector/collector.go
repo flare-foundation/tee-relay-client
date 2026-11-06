@@ -12,7 +12,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/internal/health"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -61,8 +60,7 @@ func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []da
 		MinSleepTime:       5 * time.Second,
 	}
 
-	// AddCallerSkip(-1) attributes WaitCIndexerToSync's lines to that call, not here.
-	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger().WithOptions(zap.AddCallerSkip(-1)))
+	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger())
 	if err != nil {
 		return fmt.Errorf("waiting for indexer to sync: %w", err)
 	}

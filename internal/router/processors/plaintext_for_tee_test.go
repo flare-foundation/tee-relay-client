@@ -20,9 +20,10 @@ import (
 func relaySplit(t *testing.T, walletKey, ownerKey *ecdsa.PrivateKey, id wallets.WalletBackupID, chainID uint64, isAdmin bool) hexutil.Bytes {
 	t.Helper()
 	ksd := backup.KeySplitData{
-		Shares:                []backup.ShamirShare{{X: 1, Y: []byte{2}}},
-		PartialWalletBackupID: backup.PartialWalletBackupID{WalletBackupID: id, IsAdmin: isAdmin},
-		OwnerPublicKey:        types.PubKeyToStruct(&ownerKey.PublicKey),
+		Shares:         []backup.ShamirShare{{X: 1, Y: []byte{2}}},
+		WalletBackupID: id,
+		IsAdmin:        isAdmin,
+		OwnerPublicKey: types.PubKeyToStruct(&ownerKey.PublicKey),
 	}
 	signHash, err := ksd.SignHash(chainID)
 	require.NoError(t, err)
@@ -69,7 +70,7 @@ func TestPlaintextForTEE(t *testing.T) {
 
 	t.Run("provider only", func(t *testing.T) {
 		wb := backup.WalletBackup{
-			WalletBackupMetaData:   backup.WalletBackupMetaData{WalletBackupID: id},
+			WalletBackupID:         id,
 			ProviderEncryptedParts: shares(relayPub, relayProvider),
 			AdminEncryptedParts:    shares(otherPub, junk),
 		}
@@ -82,7 +83,7 @@ func TestPlaintextForTEE(t *testing.T) {
 
 	t.Run("admin only", func(t *testing.T) {
 		wb := backup.WalletBackup{
-			WalletBackupMetaData:   backup.WalletBackupMetaData{WalletBackupID: id},
+			WalletBackupID:         id,
 			ProviderEncryptedParts: shares(otherPub, junk),
 			AdminEncryptedParts:    shares(relayPub, relayAdmin),
 		}
@@ -95,7 +96,7 @@ func TestPlaintextForTEE(t *testing.T) {
 
 	t.Run("provider and admin", func(t *testing.T) {
 		wb := backup.WalletBackup{
-			WalletBackupMetaData:   backup.WalletBackupMetaData{WalletBackupID: id},
+			WalletBackupID:         id,
 			ProviderEncryptedParts: shares(relayPub, relayProvider),
 			AdminEncryptedParts:    shares(relayPub, relayAdmin),
 		}
@@ -109,7 +110,7 @@ func TestPlaintextForTEE(t *testing.T) {
 
 	t.Run("owner in neither set returns nil", func(t *testing.T) {
 		wb := backup.WalletBackup{
-			WalletBackupMetaData:   backup.WalletBackupMetaData{WalletBackupID: id},
+			WalletBackupID:         id,
 			ProviderEncryptedParts: shares(otherPub, junk),
 			AdminEncryptedParts:    shares(otherPub, junk),
 		}

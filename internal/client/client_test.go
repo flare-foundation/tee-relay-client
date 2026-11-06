@@ -46,7 +46,7 @@ func TestSetSigner(t *testing.T) {
 
 	t.Run("remote with valid credentials", func(t *testing.T) {
 		s, err := setSigner(&config.Signer{
-			Credentials: config.Credentials{URL: "http://signer", KeyName: "X-API-KEY", Key: "k"},
+			URL: "http://signer", KeyName: "X-API-KEY", Key: "k",
 		})
 		require.NoError(t, err)
 		require.IsType(t, &signer.Remote{}, s)

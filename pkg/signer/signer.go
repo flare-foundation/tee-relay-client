@@ -21,7 +21,7 @@ type Signer interface {
 	Identify(ctx context.Context) (types.PublicKey, error)
 }
 
-// Logger is the logging interface injected into signers. logger.Nop and *zap.SugaredLogger satisfy it.
+// Logger is the logging interface injected into signers. logger.Nop and *logger.Log satisfy it.
 type Logger interface {
 	Debugf(string, ...any)
 	Infof(string, ...any)
