@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [v0.0.6](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.6) - 2026-11-12
 
 ### Changed
 
