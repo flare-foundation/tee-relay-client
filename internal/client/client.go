@@ -15,7 +15,6 @@ import (
 	"github.com/flare-foundation/tee-relay-client/internal/sender"
 	"github.com/flare-foundation/tee-relay-client/pkg/config"
 	"github.com/flare-foundation/tee-relay-client/pkg/signer"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -114,6 +113,5 @@ func setSigner(cfg *config.Signer) (signer.Signer, error) {
 
 	logger.Infof("using remote signer at %s", cfg.URL)
 
-	// WithOptions corrects the global logger's caller skip for lines emitted inside the signer package.
-	return signer.NewRemoteWithLogger(&cfg.Credentials, logger.Logger().WithOptions(zap.AddCallerSkip(-1))), nil
+	return signer.NewRemoteWithLogger(&cfg.Credentials, logger.Logger()), nil
 }

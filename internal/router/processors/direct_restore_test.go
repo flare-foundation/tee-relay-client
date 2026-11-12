@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
@@ -84,7 +84,7 @@ func TestProcessDirectRestore(t *testing.T) {
 			DestinationNonce:     big.NewInt(0),
 			MachinePathListNonce: big.NewInt(0),
 		}
-		msg, eErr := structs.Encode(wallet.MessageArguments[op.KeyDirectRestore], req)
+		msg, eErr := abicoder.Encode(wallet.MessageArguments[op.KeyDirectRestore], req)
 		require.NoError(t, eErr)
 		ib := signableBase(tees...)
 		ib.Event = &instructions.InstructionSentEvent{OpCommand: op.KeyDirectRestore.Hash()}

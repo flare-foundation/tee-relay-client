@@ -1,5 +1,5 @@
 #checkov:skip=CKV_DOCKER_2:no curl in the image, probes are orchestrator httpGet on [health]
-FROM golang:1.26.10-trixie@sha256:7202554ed358a37f41c44e4910ae29bbc5ef0715f289ac637218adbb0ca132dd AS builder
+FROM golang:1.27.4-trixie@sha256:b54b2639de8c1bfe538ec5ffc45f29b1932235ac5f6d63c059853646677112d9 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./

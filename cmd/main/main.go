@@ -142,9 +142,6 @@ func main() {
 		shutdownCancel()
 	}
 
-	// Wait for the pipeline goroutines to log their "closing" lines, then flush the file core.
+	// Wait for the pipeline goroutines to log their "closing" lines.
 	cl.Wait()
-	if cfg.Logging.File != "" {
-		logger.SyncFileLogger()
-	}
 }

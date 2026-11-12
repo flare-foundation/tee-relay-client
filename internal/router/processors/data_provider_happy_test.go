@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/utils"
@@ -73,11 +73,9 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	// Provider split owned by the relay, signed by the wallet key, ECIES-encrypted
 	// to the relay.
 	ksd := backup.KeySplitData{
-		Shares: []backup.ShamirShare{{X: 1, Y: []byte{2}}},
-		PartialWalletBackupID: backup.PartialWalletBackupID{
-			WalletBackupID: id,
-			IsAdmin:        false,
-		},
+		Shares:         []backup.ShamirShare{{X: 1, Y: []byte{2}}},
+		WalletBackupID: id,
+		IsAdmin:        false,
 		OwnerPublicKey: types.PubKeyToStruct(&relayKey.PublicKey),
 	}
 	splitSignHash, err := ksd.SignHash(chainID)
@@ -100,12 +98,10 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	}
 
 	wb := backup.WalletBackup{
-		WalletBackupMetaData: backup.WalletBackupMetaData{
-			WalletBackupID:     id,
-			AdminsPublicKeys:   []types.PublicKey{types.PubKeyToStruct(&adminKey.PublicKey)},
-			AdminsThreshold:    1,
-			ProvidersThreshold: 1,
-		},
+		WalletBackupID:         id,
+		AdminsPublicKeys:       []types.PublicKey{types.PubKeyToStruct(&adminKey.PublicKey)},
+		AdminsThreshold:        1,
+		ProvidersThreshold:     1,
 		AdminEncryptedParts:    admin,
 		ProviderEncryptedParts: provider,
 	}
@@ -143,7 +139,7 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 		BackupUrl: srv.URL,
 		Nonce:     big.NewInt(0),
 	}
-	msg, err := structs.Encode(wallet.MessageArguments[op.KeyDataProviderRestore], req)
+	msg, err := abicoder.Encode(wallet.MessageArguments[op.KeyDataProviderRestore], req)
 	require.NoError(t, err)
 
 	ib := signableBase(destAddr)

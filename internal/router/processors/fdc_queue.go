@@ -12,7 +12,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"go.uber.org/zap"
 )
 
 // Weight for ordering of the FDC queues.
@@ -41,14 +40,9 @@ type FDCQueue struct {
 func NewQueue(params priority.Params, name string) *FDCQueue {
 	// Terminal errors must always be drainable; see ProcessOut. params is a value copy.
 	params.ErrorChan = true
-	queue := priority.NewWithLogger[*instructions.Base, Weight](params, name, queueLogger())
+	queue := priority.NewWithLogger[*instructions.Base, Weight](params, name, logger.Logger())
 
 	return &FDCQueue{queue}
-}
-
-// queueLogger corrects the global logger's caller skip for logs emitted inside the priority package.
-func queueLogger() *zap.SugaredLogger {
-	return logger.Logger().WithOptions(zap.AddCallerSkip(-1))
 }
 
 // Handler handles a dequeued instruction.

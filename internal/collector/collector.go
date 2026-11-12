@@ -8,32 +8,20 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/tee-relay-client/internal/health"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 const requestInterval = 2 * time.Second // TODO: set the frequency of database requests
 
 // TeeInstructionsSentSel is the event selector (topic0) of the TeeInstructionsSent event.
-var TeeInstructionsSentSel common.Hash // set in init
-
-func init() {
-	teeInstructionsABI, err := teeinstructions.InstructionsMetaData.GetAbi()
-	if err != nil {
-		panic("getting teeInstructionsABI abi: " + err.Error())
-	}
-
-	event, exits := teeInstructionsABI.Events["TeeInstructionsSent"]
-	if !exits {
-		panic("invalid event TeeInstructionsSent")
-	}
-
-	TeeInstructionsSentSel = event.ID
-}
+var TeeInstructionsSentSel = contracts.MustEvent(
+	contracts.MustABI(teeinstructions.InstructionsMetaData), "TeeInstructionsSent",
+).ID
 
 // Collector listens for TeeInstructionsSent events emitted by the FlareTeeManager in the indexer database.
 type Collector struct {
@@ -61,8 +49,7 @@ func (c *Collector) Run(ctx context.Context, wg *sync.WaitGroup, out chan<- []da
 		MinSleepTime:       5 * time.Second,
 	}
 
-	// AddCallerSkip(-1) attributes WaitCIndexerToSync's lines to that call, not here.
-	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger().WithOptions(zap.AddCallerSkip(-1)))
+	err := database.WaitCIndexerToSync(ctx, c.DB, syncParams, logger.Logger())
 	if err != nil {
 		return fmt.Errorf("waiting for indexer to sync: %w", err)
 	}

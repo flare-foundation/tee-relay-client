@@ -51,8 +51,7 @@ runs as uid 10001.
 - **Contract address** — `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` supplies `flare_tee_manager`, so the address can come
   from the deployment environment instead of the mounted config. Set in both places, the two must agree (see
   [FlareTeeManager address](#flareteemanager-address)).
-- **Logs** — `/app` is not writable by uid 10001, so `logger.file` needs a mounted writable directory. Otherwise keep
-  `console = true` and read `docker logs`.
+- **Logs** — written to stdout only; read them with `docker logs`.
 - **Ports** — `8080`, which the image `EXPOSE`s, serves the [health endpoints](#health-endpoints). `EXPOSE` publishes
   nothing: map it with `-p` to reach it from the host. The image has no `curl`, so a Docker `HEALTHCHECK` cannot call
   the endpoints; use the orchestrator's HTTP probes.
@@ -385,13 +384,12 @@ A non-200 status means the request was not processed. Within a single query the 
 
 ```toml
 [logger]
-level = "INFO"       # DEBUG, INFO, WARN, ERROR (DPANIC, PANIC and FATAL are also accepted)
-console = true       # write logs to stdout
-file = ""            # path to log file; empty disables file logging
-max_file_size = 10   # max log file size in MB before rotation
-max_backups = 10     # number of rotated files to keep
-max_age_days = 30    # days to keep rotated files
+level = "INFO"       # DEBUG, INFO, WARN, ERROR or FATAL (DPANIC and PANIC are read as FATAL)
+format = "console"   # "console" or "json"
 ```
+
+Logs go to stdout only. Set `NO_COLOR` to a nonempty value to disable console colors. The old `file`, `max_file_size`,
+`max_backups`, `max_age_days` and `console` keys are ignored, with an info line at startup.
 
 ### Health endpoints
 
