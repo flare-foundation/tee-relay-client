@@ -13,7 +13,7 @@ default:
     expire_in: 3 days
 
 variables:
-  GO_VERSION: "1.27.3"
+  GO_VERSION: "1.27.4"
   GOVULNCHECK_VERSION: "v1.6.0"
 
 vuln:

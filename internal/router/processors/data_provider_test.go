@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
@@ -46,7 +46,7 @@ func TestProcessDataProviderRestore(t *testing.T) {
 			BackupUrl:    url,
 			Nonce:        big.NewInt(0),
 		}
-		msg, err := structs.Encode(wallet.MessageArguments[op.KeyDataProviderRestore], req)
+		msg, err := abicoder.Encode(wallet.MessageArguments[op.KeyDataProviderRestore], req)
 		require.NoError(t, err)
 		ib := signableBase(destTEE)
 		ib.Event = &instructions.InstructionSentEvent{OpCommand: op.KeyDataProviderRestore.Hash()}

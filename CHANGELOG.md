@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Go 1.27.3 and go-flare-common v1.5.0.
+- Go 1.27.4, go-flare-common v1.6.0 and tee-node v0.0.30.
 - Logs go to stdout only, in console or JSON format selected by `[logger] format`. The `file`, `max_file_size`, `max_backups`, `max_age_days` and `console` keys are ignored.
 
 ## [v0.0.5](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.5) - 2026-10-22

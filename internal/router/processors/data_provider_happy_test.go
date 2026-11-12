@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
 	"github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/utils"
@@ -139,7 +139,7 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 		BackupUrl: srv.URL,
 		Nonce:     big.NewInt(0),
 	}
-	msg, err := structs.Encode(wallet.MessageArguments[op.KeyDataProviderRestore], req)
+	msg, err := abicoder.Encode(wallet.MessageArguments[op.KeyDataProviderRestore], req)
 	require.NoError(t, err)
 
 	ib := signableBase(destAddr)
